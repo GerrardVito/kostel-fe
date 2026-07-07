@@ -671,6 +671,13 @@ export default function App() {
     }
   };
 
+  // Safety: If tenant has no property and no onboarding step, force to nohome
+  useEffect(() => {
+    if (currentUser?.role === "tenant" && !currentUser.hasProperty && !onboardingStep) {
+      setOnboardingStep("nohome");
+    }
+  }, [currentUser?.role, currentUser?.hasProperty, onboardingStep]);
+
   if (!token || !currentUser) {
     if (authLoading && token) {
       return (
@@ -683,11 +690,6 @@ export default function App() {
       );
     }
     return <AuthView onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  // Safety: If tenant has no property and no onboarding step, force to nohome
-  if (currentUser.role === "tenant" && !currentUser.hasProperty && !onboardingStep) {
-    setOnboardingStep("nohome");
   }
 
   return (

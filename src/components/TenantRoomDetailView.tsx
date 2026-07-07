@@ -80,7 +80,7 @@ interface TenantRoomDetailViewProps {
   room: RoomData;
   propertyId: string;
   propertyName: string;
-  token: string;
+  token?: string;
   onBack: () => void;
   onStatusChanged: () => void;
 }
