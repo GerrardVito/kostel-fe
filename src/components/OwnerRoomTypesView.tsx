@@ -24,6 +24,7 @@ import RoomFacilityManager from "./RoomFacilityManager";
 import RoomFacilityStatusPopup from "./RoomFacilityStatusPopup";
 import TenantRoomDetailView from "./TenantRoomDetailView";
 import ImageCarousel from "./ImageCarousel";
+import { getStoredToken } from "../services/auth";
 
 interface RoomData {
   id: number;
@@ -73,6 +74,13 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesViewProps) {
+  const authHeaders = (): Record<string, string> => {
+    const token = getStoredToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+  };
+
   const [uploadingContract, setUploadingContract] = useState<number | null>(null);
   const [view, setView] = useState<"room-types" | "rooms" | "room-detail">("room-types");
   const [roomTypes, setRoomTypes] = useState<RoomTypeData[]>([]);
@@ -135,7 +143,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
 
   const fetchRoomTypes = async () => {
     try {
-      const res = await fetch(`/api/properties/${property.id}/room-types`);
+      const res = await fetch(`/api/properties/${property.id}/room-types`, { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
         setRoomTypes(data);
@@ -162,7 +170,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
 
   const fetchRoomProfits = async () => {
     try {
-      const res = await fetch(`/api/rooms/profit/property/${property.id}`);
+      const res = await fetch(`/api/rooms/profit/property/${property.id}`, { headers: authHeaders() });
       if (res.ok) {
         const data: { room_id: number; total_income: number; total_expense: number; profit: number }[] = await res.json();
         const map: Record<number, { total_income: number; total_expense: number; profit: number }> = {};
@@ -187,7 +195,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     try {
       const res = await fetch(`/api/properties/${property.id}/room-types`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           name: addName,
           monthlyPrice: parseFloat(addPrice),
@@ -230,6 +238,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
       try {
         const res = await fetch(`/api/room-types/${roomTypeId}/contract`, {
           method: "POST",
+          headers: { Authorization: `Bearer ${getStoredToken()}` },
           body: formData,
         });
         if (res.ok) {
@@ -247,7 +256,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
   const handleDeleteRoomType = async () => {
     if (!deleteTarget) return;
     try {
-      const res = await fetch(`/api/room-types/${deleteTarget}`, { method: "DELETE" });
+      const res = await fetch(`/api/room-types/${deleteTarget}`, { method: "DELETE", headers: authHeaders() });
       if (res.ok) {
         setShowDeleteModal(false);
         setDeleteTarget(null);
@@ -269,7 +278,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     try {
       const res = await fetch(`/api/properties/${property.id}/rooms/bulk-generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           roomTypeId: selectedType.id,
           count: parseInt(bulkCount),
@@ -317,7 +326,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     try {
       const res = await fetch(`/api/room-types/${settingsData.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           type_name: editName,
           monthly_price: parseFloat(editPrice),
@@ -347,7 +356,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     try {
       const res = await fetch(`/api/properties/${property.id}/rooms`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({
           roomNumber: addRoomNumber,
           monthlyPrice: selectedType.monthlyPrice,
@@ -371,7 +380,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
   const handleDeleteRoom = async () => {
     if (!deleteRoomTarget) return;
     try {
-      const res = await fetch(`/api/rooms/${deleteRoomTarget.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/rooms/${deleteRoomTarget.id}`, { method: "DELETE", headers: authHeaders() });
       if (res.ok) {
         setShowDeleteRoomModal(false);
         setDeleteRoomTarget(null);
@@ -397,7 +406,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     try {
       await fetch("/api/room-types/reorder", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ orders }),
       });
       fetchRoomTypes();
@@ -416,7 +425,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     try {
       await fetch("/api/room-types/reorder", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(),
         body: JSON.stringify({ orders }),
       });
       fetchRoomTypes();

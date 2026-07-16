@@ -75,15 +75,26 @@ export default function OwnerDashboardView({
   );
   const vacantRooms = totalRooms - occupiedRooms;
 
+  // Defensive defaults to prevent crashes if a prop is briefly undefined
+  const safeBills = bills ?? [];
+  const safeActivityLogs = activityLogs ?? [];
+  const safeMaintenanceRequests = maintenanceRequests ?? [];
+
   // Financial estimations
-  const unpaidBillsCount = bills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE").length;
-  const unpaidAmountValue = bills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE").reduce((acc, b) => acc + b.amount, 0);
-  const paidAmountValue = bills.filter(b => b.status === "PAID").reduce((acc, b) => acc + b.amount, 0);
+  const unpaidBillsCount = safeBills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE").length;
+  const unpaidAmountValue = safeBills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE").reduce((acc, b) => acc + b.amount, 0);
+  const paidAmountValue = safeBills.filter(b => b.status === "PAID").reduce((acc, b) => acc + b.amount, 0);
 
   // Filter logs or tenants
-  const filteredLogs = activityLogs.filter(log =>
+  const getRoomLabel = (room: unknown): string => {
+    if (typeof room === "string") return room;
+    if (room && typeof room === "object" && "room_number" in room) return (room as any).room_number;
+    return "";
+  };
+
+  const filteredLogs = safeActivityLogs.filter(log =>
     log.tenantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.room.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getRoomLabel(log.room).toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.action.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -96,8 +107,8 @@ export default function OwnerDashboardView({
   };
 
   // Maintenance statistics
-  const pendingMaint = maintenanceRequests.filter(m => m.status === "PENDING" || m.status === "PROCESSING").length;
-  const completedMaint = maintenanceRequests.filter(m => m.status === "COMPLETED").length;
+  const pendingMaint = safeMaintenanceRequests.filter(m => m.status === "PENDING" || m.status === "PROCESSING").length;
+  const completedMaint = safeMaintenanceRequests.filter(m => m.status === "COMPLETED").length;
   // Fallbacks corresponding to html specifications
   const pendingValue = Math.max(12, pendingMaint);
   const completedValue = Math.max(8, completedMaint);
@@ -338,9 +349,9 @@ export default function OwnerDashboardView({
                 Urgent Attention Needed
               </p>
               
-              {maintenanceRequests.length > 0 ? (
+              {safeMaintenanceRequests.length > 0 ? (
                 <div className="space-y-3">
-                  {maintenanceRequests.slice(0, 2).map(req => (
+                  {safeMaintenanceRequests.slice(0, 2).map(req => (
                     <div
                       key={req.id}
                       onClick={() => setSelectedRequest(req)}
@@ -502,7 +513,7 @@ export default function OwnerDashboardView({
                     {log.tenantName}
                   </td>
                   <td className="px-6 py-4 text-primary font-mono text-xs font-bold">
-                    {log.room}
+                    {getRoomLabel(log.room)}
                   </td>
                   <td className="px-6 py-4 text-slate-500 text-xs">
                     <span className="block font-medium text-slate-700">{log.action}</span>
@@ -596,7 +607,7 @@ export default function OwnerDashboardView({
               </div>
 
               <div className="flex gap-2 font-mono text-[11px] justify-between text-slate-500 py-1 bg-slate-50 px-3 rounded-lg border border-slate-150">
-                <span>Room: {selectedRequest.room}</span>
+                <span>Room: {typeof selectedRequest.room === "object" && selectedRequest.room !== null ? (selectedRequest.room as any).room_number : selectedRequest.room}</span>
                 <span>Logged: {selectedRequest.date}</span>
               </div>
 

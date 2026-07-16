@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Plus, Trash2, Wrench } from "lucide-react";
+import { getStoredToken } from "../services/auth";
 
 interface RoomFacility {
   facility_id: number;
@@ -20,7 +21,7 @@ export default function RoomFacilityManager({ roomTypeId }: Props) {
 
   const fetchFacilities = async () => {
     try {
-      const res = await fetch(`/api/room-facilities/room-type/${roomTypeId}`);
+      const res = await fetch(`/api/room-facilities/room-type/${roomTypeId}`, { headers: { Authorization: `Bearer ${getStoredToken()}` } });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -44,7 +45,7 @@ export default function RoomFacilityManager({ roomTypeId }: Props) {
     try {
       const res = await fetch(`/api/room-facilities/room-type/${roomTypeId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getStoredToken()}` },
         body: JSON.stringify({ facility_name: newName.trim() }),
       });
       if (res.ok) {
@@ -61,7 +62,7 @@ export default function RoomFacilityManager({ roomTypeId }: Props) {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`/api/room-facilities/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/room-facilities/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${getStoredToken()}` } });
       if (res.ok) {
         fetchFacilities();
       }

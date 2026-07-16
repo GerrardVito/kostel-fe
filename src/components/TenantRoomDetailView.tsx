@@ -22,6 +22,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import DepositCutModal from "./DepositCutModal";
+import { getStoredToken } from "../services/auth";
 
 interface TenantData {
   assignment_id: number;
@@ -104,8 +105,8 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
     const fetchData = async () => {
       try {
         const [tenantRes, financesRes] = await Promise.all([
-          fetch(`/api/rooms/${room.id}/tenant`),
-          fetch(`/api/rooms/${room.id}/finances`),
+          fetch(`/api/rooms/${room.id}/tenant`, { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
+          fetch(`/api/rooms/${room.id}/finances`, { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
         ]);
         if (tenantRes.ok) {
           const tenantData = await tenantRes.json();
@@ -130,7 +131,7 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
     try {
       const res = await fetch(`/api/rooms/${room.id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getStoredToken()}` },
         body: JSON.stringify({ status: selectedStatus }),
       });
       if (res.ok) {

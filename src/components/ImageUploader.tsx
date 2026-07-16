@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { Upload, X, ImageIcon } from "lucide-react";
+import { getStoredToken } from "../services/auth";
 
 interface ImageUploaderProps {
   initialUrl?: string;
@@ -21,7 +22,11 @@ export default function ImageUploader({ initialUrl, onUpload, className }: Image
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getStoredToken()}` },
+        body: formData,
+      });
       if (res.ok) {
         const data = await res.json();
         URL.revokeObjectURL(blobUrl);

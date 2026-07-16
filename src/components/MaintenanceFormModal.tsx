@@ -1,30 +1,23 @@
 import React, { useState, FormEvent } from "react";
 import { Wrench, X, AlertTriangle } from "lucide-react";
-import { MaintenanceRequest } from "../types";
 
 interface MaintenanceFormModalProps {
   onClose: () => void;
-  onSubmit: (title: string, description: string, urgent: boolean, estimatedCost?: number, actualCost?: number) => void;
+  onSubmit: (title: string, description: string, urgent: boolean) => void;
 }
 
 export default function MaintenanceFormModal({ onClose, onSubmit }: MaintenanceFormModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [urgent, setUrgent] = useState(false);
-  const [estimatedCost, setEstimatedCost] = useState("");
-  const [actualCost, setActualCost] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
-    const est = estimatedCost ? parseFloat(estimatedCost) : undefined;
-    const act = actualCost ? parseFloat(actualCost) : undefined;
-    onSubmit(title.trim(), description.trim(), urgent, est, act);
+    onSubmit(title.trim(), description.trim(), urgent);
     setTitle("");
     setDescription("");
     setUrgent(false);
-    setEstimatedCost("");
-    setActualCost("");
   };
 
   return (
@@ -91,35 +84,6 @@ export default function MaintenanceFormModal({ onClose, onSubmit }: MaintenanceF
               />
               <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
             </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 tracking-wider mb-1.5">
-                ESTIMATED COST (Rp)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={estimatedCost}
-                onChange={(e) => setEstimatedCost(e.target.value)}
-                placeholder="0"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 tracking-wider mb-1.5">
-                ACTUAL COST (Rp)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={actualCost}
-                onChange={(e) => setActualCost(e.target.value)}
-                placeholder="0"
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-              />
-            </div>
           </div>
 
           <div className="pt-3 border-t border-slate-100 flex gap-3 justify-end">

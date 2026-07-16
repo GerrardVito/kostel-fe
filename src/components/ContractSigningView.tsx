@@ -40,7 +40,7 @@ export default function ContractSigningView({ propertyId, propertyName, roomId, 
   const fetchTemplate = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/properties/${propertyId}/contract-template`);
+      const res = await fetch(`/api/properties/${propertyId}/contract-template`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         setTemplate(await res.json());
       }
@@ -116,7 +116,11 @@ export default function ContractSigningView({ propertyId, propertyName, roomId, 
     const blob = await (await fetch(signatureDataUrl)).blob();
     const formData = new FormData();
     formData.append("file", blob, "signature.png");
-    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
     if (res.ok) {
       const data = await res.json();
       return data.url;
@@ -157,9 +161,9 @@ export default function ContractSigningView({ propertyId, propertyName, roomId, 
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({
-              assignmentId: assignmentId,
-              startDate: now.toISOString(),
-              endDate: new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString(),
+              assignment_id: assignmentId,
+              contract_start: now.toISOString(),
+              contract_end: new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString(),
             }),
           });
           if (createRes.ok) {
@@ -187,10 +191,10 @@ export default function ContractSigningView({ propertyId, propertyName, roomId, 
         }
       } else {
         const res = await fetch("/api/contracts/sign-join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ userId: userId.toString(), propertyId, signatureImage: sigUrl, roomId: roomId?.toString() }),
-        });
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ userId, propertyId, signatureImage: sigUrl, roomId }),
+          });
         if (res.ok) {
           onCompleted();
         } else {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { BedDouble, DollarSign, Maximize, ArrowLeft, Check, Loader2, Hash, Building2 } from "lucide-react";
 import ImageCarousel from "./ImageCarousel";
+import { getStoredToken } from "../services/auth";
 
 interface AvailableRoom {
   id: number;
@@ -42,7 +43,7 @@ export default function RoomSelectionView({ propertyId, propertyName, onSelected
     }
     setLoading(true);
     setError(null);
-    fetch(`/api/properties/${propertyId}/available-rooms`)
+    fetch(`/api/properties/${propertyId}/available-rooms`, { headers: { Authorization: `Bearer ${getStoredToken()}` } })
       .then((r) => {
         if (!r.ok) throw new Error(`Failed to load rooms (HTTP ${r.status})`);
         return r.json();

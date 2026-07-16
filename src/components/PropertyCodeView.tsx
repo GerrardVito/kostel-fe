@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Building2, MapPin, Check, ArrowRight, Loader2 } from "lucide-react";
+import { getStoredToken } from "../services/auth";
 
 interface PropertyInfo {
   id: string;
@@ -38,7 +39,7 @@ export default function PropertyCodeView({ onApply, userId, token }: Props) {
     setProperty(null);
     setRoomTypes([]);
     try {
-      const res = await fetch(`/api/properties/code/${code.trim().toUpperCase()}`);
+      const res = await fetch(`/api/properties/code/${code.trim().toUpperCase()}`, { headers: { Authorization: `Bearer ${getStoredToken()}` } });
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || "Property not found");

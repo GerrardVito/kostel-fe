@@ -74,7 +74,7 @@ export default function NoHomeTenantView({ token, userId, hasPendingApplication,
     setProperty(null);
     setRoomTypes([]);
     try {
-      const res = await fetch(`/api/properties/code/${code.trim().toUpperCase()}`);
+      const res = await fetch(`/api/properties/code/${code.trim().toUpperCase()}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || "Property not found");

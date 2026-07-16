@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, CheckCircle, AlertTriangle, Wrench, RefreshCw } from "lucide-react";
+import { getStoredToken } from "../services/auth";
 
 interface FacilityStatus {
   facility_id: number;
@@ -28,7 +29,7 @@ export default function RoomFacilityStatusPopup({ roomId, roomNumber, onClose }:
 
   const fetchFacilities = async () => {
     try {
-      const res = await fetch(`/api/rooms/${roomId}/facilities`);
+      const res = await fetch(`/api/rooms/${roomId}/facilities`, { headers: { Authorization: `Bearer ${getStoredToken()}` } });
       if (res.ok) setFacilities(await res.json());
     } catch (e) {
       console.error("Failed to fetch facility statuses:", e);
@@ -46,7 +47,7 @@ export default function RoomFacilityStatusPopup({ roomId, roomNumber, onClose }:
     try {
       await fetch(`/api/rooms/${roomId}/facilities/${facilityId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getStoredToken()}` },
         body: JSON.stringify({ status, notes }),
       });
       fetchFacilities();

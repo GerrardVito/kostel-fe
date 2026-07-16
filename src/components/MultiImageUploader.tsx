@@ -12,6 +12,7 @@ import {
   Grid3X3,
   Maximize2,
 } from "lucide-react";
+import { getStoredToken } from "../services/auth";
 
 interface MultiImageUploaderProps {
   initialUrls?: string[];
@@ -61,6 +62,7 @@ export default function MultiImageUploader({
           formData.append("file", file);
           const res = await fetch("/api/upload", {
             method: "POST",
+            headers: { Authorization: `Bearer ${getStoredToken()}` },
             body: formData,
           });
           if (res.ok) {

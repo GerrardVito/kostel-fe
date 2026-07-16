@@ -16,6 +16,7 @@ import OwnerRoomTypesView from "./components/OwnerRoomTypesView";
 import OwnerPropertyDetailView from "./components/OwnerPropertyDetailView";
 import OwnerPropertyOverviewView from "./components/OwnerPropertyOverviewView";
 import MaintenanceFormModal from "./components/MaintenanceFormModal";
+import ResolveMaintenanceModal from "./components/ResolveMaintenanceModal";
 import NoHomeTenantView from "./components/NoHomeTenantView";
 import RoomSelectionView from "./components/RoomSelectionView";
 import ContractSigningView from "./components/ContractSigningView";
@@ -24,9 +25,10 @@ import TenantApplicationStatus from "./components/TenantApplicationStatus";
 import ChecklistSessionView from "./components/ChecklistSessionView";
 import PaymentView from "./components/PaymentView";
 import OwnerSurveyView from "./components/OwnerSurveyView";
+import FinanceView from "./components/FinanceView";
 
 // Icons & Transition utilities
-import { Home, CreditCard, Wrench, User, RotateCcw, Building2, Bell, Shield, Calendar, MapPin, Check, Plus, AlertTriangle, Play, RefreshCw, ClipboardList } from "lucide-react";
+import { Home, CreditCard, Wrench, User, RotateCcw, Building2, Bell, Shield, Calendar, MapPin, Check, Plus, AlertTriangle, Play, RefreshCw, ClipboardList, DollarSign } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { clearAuth, getStoredToken, getStoredUser, getMe } from "./services/auth";
 
@@ -43,8 +45,8 @@ export default function App() {
   // Active Bottom Navigation Tab for Tenant ("home" | "billing" | "support" | "profile")
   const [tenantTab, setTenantTab] = useState<"home" | "billing" | "support" | "profile">("home");
 
-  // Active Bottom Navigation Tab for Owner ("home" | "billing" | "support" | "profile")
-  const [ownerTab, setOwnerTab] = useState<"home" | "billing" | "support" | "survey" | "profile">("home");
+  // Active Bottom Navigation Tab for Owner ("home" | "billing" | "support" | "survey" | "profile")
+  const [ownerTab, setOwnerTab] = useState<"home" | "billing" | "support" | "survey" | "finance" | "profile">("home");
 
   // Drill-down: selected property for property overview
   const [selectedPropertyOverview, setSelectedPropertyOverview] = useState<Property | null>(null);
@@ -69,6 +71,8 @@ export default function App() {
 
   // Modal displays
   const [showMaintModal, setShowMaintModal] = useState(false);
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [resolvingRequest, setResolvingRequest] = useState<MaintenanceRequest | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
 
   // Validate stored token on mount
@@ -104,7 +108,9 @@ export default function App() {
       }
 
       // 2. Bills / Payments
-      const billsRes = await fetch('/api/payments');
+      const billsHeaders: Record<string, string> = {};
+      if (token) billsHeaders["Authorization"] = `Bearer ${token}`;
+      const billsRes = await fetch('/api/payments', { headers: billsHeaders });
       if (billsRes.ok) {
         const billsData = await billsRes.json();
         setBills(billsData);
@@ -119,24 +125,30 @@ export default function App() {
       }
 
       // 3. Announcements
-      const annRes = await fetch('/api/announcements');
+      const annHeaders: Record<string, string> = {};
+      if (token) annHeaders["Authorization"] = `Bearer ${token}`;
+      const annRes = await fetch('/api/announcements', { headers: annHeaders });
       if (annRes.ok) {
         const annData = await annRes.json();
         setAnnouncements(annData);
       }
 
       // 4. Maintenance Requests
-      const maintRes = await fetch('/api/maintenance-requests');
+      const maintHeaders: Record<string, string> = {};
+      if (token) maintHeaders["Authorization"] = `Bearer ${token}`;
+      const maintRes = await fetch('/api/maintenance-requests', { headers: maintHeaders });
       if (maintRes.ok) {
         const maintData = await maintRes.json();
         setMaintenanceRequests(maintData);
       }
 
       // 5. Dashboard Stats & Logs
-      const statsRes = await fetch('/api/dashboard/stats');
+      const statsHeaders: Record<string, string> = {};
+      if (token) statsHeaders["Authorization"] = `Bearer ${token}`;
+      const statsRes = await fetch('/api/dashboard/stats', { headers: statsHeaders });
       if (statsRes.ok) {
         const statsData = await statsRes.json();
-        setActivityLogs(statsData.logs);
+        setActivityLogs(Array.isArray(statsData.logs) ? statsData.logs : []);
       }
 
       // 6. Pending applications (for owner)
@@ -220,7 +232,7 @@ export default function App() {
   // Reset Demo to seed defaults
   const handleResetDemoAndSync = async () => {
     try {
-      const res = await fetch('/api/dashboard/seed-reset', { method: 'POST' });
+      const res = await fetch('/api/dashboard/seed-reset', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         triggerNotification("Demonstration database reset successfully to base configurations!");
         fetchAllData();
@@ -233,7 +245,7 @@ export default function App() {
   // 1. Pay an individual bill
   const handlePayBill = async (id: string) => {
     try {
-      const res = await fetch(`/api/payments/${id}/pay`, { method: 'PUT' });
+      const res = await fetch(`/api/payments/${id}/pay`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
         triggerNotification(`Successfully processed payment: ${data.bill?.bill_type || 'Bill'}`);
@@ -247,7 +259,7 @@ export default function App() {
   // 2. Pay all bills bulk trigger
   const handlePayAllBills = async () => {
     try {
-      const res = await fetch('/api/payments/pay-all', { method: 'POST' });
+      const res = await fetch('/api/payments/pay-all', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         triggerNotification("Cleared fully optimized arrears sum from active ledger!");
         fetchAllData();
@@ -258,12 +270,12 @@ export default function App() {
   };
 
   // 3. Resolve, advance or reject maintenance states inside Owner views
-  const handleResolveMaintenance = async (id: string, newStatus: "PENDING" | "PROCESSING" | "COMPLETED") => {
+  const handleResolveMaintenance = async (id: string, newStatus: "PENDING" | "PROCESSING" | "COMPLETED", actualCost?: number) => {
     try {
       const res = await fetch(`/api/maintenance-requests/${id}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus, actual_cost: actualCost })
       });
       if (res.ok) {
         triggerNotification(`Dispatched ticket status changed to: ${newStatus}`);
@@ -275,12 +287,12 @@ export default function App() {
   };
 
   // 4. Submit fresh maintenance ticket as tenant
-  const handleCreateMaintenance = async (title: string, description: string, urgent: boolean, estimatedCost?: number, actualCost?: number) => {
+  const handleCreateMaintenance = async (title: string, description: string, urgent: boolean) => {
     try {
       const res = await fetch('/api/maintenance-requests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, urgent, estimated_cost: estimatedCost, actual_cost: actualCost })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title, description, urgent })
       });
       if (res.ok) {
         if (urgent) {
@@ -507,13 +519,10 @@ export default function App() {
           }
         } catch (e) {
           console.error("Failed to determine onboarding step:", e);
-          // Fallback to localStorage or default
-          const savedStep = localStorage.getItem("kostel_onboarding_step");
-          if (savedStep) {
-            setOnboardingStep(savedStep as any);
-          } else {
-            setOnboardingStep("nohome");
-          }
+          // On error, clear onboarding state and let the safety effect decide.
+          // This prevents bouncing the user back to "contract" from a stale
+          // localStorage value when the server lookup failed.
+          setOnboardingStep(null);
         }
       };
 
@@ -596,6 +605,9 @@ export default function App() {
     // After contract signing, transition to check-in checklist
     const assignmentId = onboardingAssignmentId;
     if (assignmentId) {
+      // Mark contract step as completed so a reload doesn't bounce back to it.
+      localStorage.setItem("kostel_onboarding_step", "checklist");
+      localStorage.setItem("kostel_onboarding_assignmentId", String(assignmentId));
       setOnboardingStep("checklist");
       return;
     }
@@ -675,6 +687,10 @@ export default function App() {
   useEffect(() => {
     if (currentUser?.role === "tenant" && !currentUser.hasProperty && !onboardingStep) {
       setOnboardingStep("nohome");
+    }
+    // Owners should never have an onboarding step — clear stale localStorage
+    if (currentUser?.role === "owner" && onboardingStep) {
+      setOnboardingStep(null);
     }
   }, [currentUser?.role, currentUser?.hasProperty, onboardingStep]);
 
@@ -949,7 +965,7 @@ export default function App() {
                           </div>
 
                           <div className="pt-2 text-[10px] text-slate-400 border-t border-slate-100 font-mono">
-                            Address: {req.propertyName} · {req.room}
+                            Address: {req.propertyName} · {typeof req.room === "object" && req.room !== null ? (req.room as any).room_number : req.room}
                           </div>
                         </div>
                       ))}
@@ -1109,7 +1125,7 @@ export default function App() {
                           </div>
 
                           <div className="flex gap-4 font-mono text-[10px] text-slate-500 pt-1.5 border-t border-slate-100">
-                            <span>Room: {req.room}</span>
+                            <span>Room: {typeof req.room === "object" && req.room !== null ? (req.room as any).room_number : req.room}</span>
                             <span>Property: {req.propertyName}</span>
                           </div>
                         </div>
@@ -1126,7 +1142,7 @@ export default function App() {
                           )}
                           {req.status !== "COMPLETED" && (
                             <button
-                              onClick={() => handleResolveMaintenance(req.id, "COMPLETED")}
+                              onClick={() => { setResolvingRequest(req); setShowResolveModal(true); }}
                               className="px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-xl flex-1 cursor-pointer transition-colors text-center"
                             >
                               Resolve Issue
@@ -1155,6 +1171,10 @@ export default function App() {
 
             {ownerTab === "survey" && (
               <OwnerSurveyView properties={properties} token={token} />
+            )}
+
+            {ownerTab === "finance" && (
+              <FinanceView properties={properties} token={token} />
             )}
 
             {ownerTab === "profile" && (
@@ -1295,7 +1315,22 @@ export default function App() {
           </button>
         )}
 
-        {/* Tab 5: Tenant/Owner profile details */}
+        {/* Tab 5: Finance management (owner only) */}
+        {role === "owner" && (
+          <button
+            onClick={() => setOwnerTab("finance")}
+            className={`flex flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all text-xs outline-hidden cursor-pointer ${
+              ownerTab === "finance"
+                ? "bg-primary/5 text-primary scale-98"
+                : "text-slate-500 hover:text-slate-900"
+            }`}
+          >
+            <DollarSign className="w-5 h-5" />
+            <span className="font-sans font-medium mt-1">Finance</span>
+          </button>
+        )}
+
+        {/* Tab 6: Tenant/Owner profile details */}
         <button
           onClick={() => {
             if (role === "tenant") setTenantTab("profile");
@@ -1322,6 +1357,19 @@ export default function App() {
         <MaintenanceFormModal
           onClose={() => setShowMaintModal(false)}
           onSubmit={handleCreateMaintenance}
+        />
+      )}
+
+      {/* Owner Resolve Maintenance Modal */}
+      {showResolveModal && resolvingRequest && (
+        <ResolveMaintenanceModal
+          onClose={() => { setShowResolveModal(false); setResolvingRequest(null); }}
+          onSubmit={(actualCost) => {
+            handleResolveMaintenance(resolvingRequest.id, "COMPLETED", actualCost);
+            setShowResolveModal(false);
+            setResolvingRequest(null);
+          }}
+          title={resolvingRequest.title}
         />
       )}
     </div>

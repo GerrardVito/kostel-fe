@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Calendar, RefreshCw, Wrench, Clock, CheckCircle } from "lucide-react";
+import { getStoredToken } from "../services/auth";
 
 interface MaintRecord {
   maintenance_id: number;
@@ -34,8 +35,8 @@ export default function ScheduledMaintenanceView() {
     setLoading(true);
     try {
       const [upRes, recRes] = await Promise.all([
-        fetch("/api/maintenance-requests/upcoming/list?days=30"),
-        fetch("/api/maintenance-requests/recurring/list"),
+        fetch("/api/maintenance-requests/upcoming/list?days=30", { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
+        fetch("/api/maintenance-requests/recurring/list", { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
       ]);
       if (upRes.ok) setUpcoming(await upRes.json());
       if (recRes.ok) setRecurring(await recRes.json());

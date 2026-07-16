@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Property } from "../types";
+import { getStoredToken } from "../services/auth";
 import {
   ArrowLeft,
   Building2,
@@ -47,6 +48,7 @@ interface RoomProfit {
   status: string;
   total_income: number;
   total_expense: number;
+  total_deposit?: number;
   profit: number;
 }
 
@@ -78,9 +80,9 @@ export default function OwnerPropertyDetailView({ property, onBack }: OwnerPrope
     const fetchData = async () => {
       try {
         const [detailRes, profitRes, billsRes] = await Promise.all([
-          fetch(`/api/properties/${property.id}`),
-          fetch(`/api/rooms/profit/property/${parsedId}`),
-          fetch(`/api/bills`),
+          fetch(`/api/properties/${property.id}`, { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
+          fetch(`/api/rooms/profit/property/${parsedId}`, { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
+          fetch(`/api/bills`, { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
         ]);
 
         if (detailRes.ok) {
@@ -360,6 +362,7 @@ export default function OwnerPropertyDetailView({ property, onBack }: OwnerPrope
                   <th className="pb-2 font-semibold">Status</th>
                   <th className="pb-2 font-semibold text-right">Income</th>
                   <th className="pb-2 font-semibold text-right">Expense</th>
+                  <th className="pb-2 font-semibold text-right">Deposit Held</th>
                   <th className="pb-2 font-semibold text-right">Profit</th>
                 </tr>
               </thead>
@@ -383,6 +386,9 @@ export default function OwnerPropertyDetailView({ property, onBack }: OwnerPrope
                     </td>
                     <td className="py-2.5 text-right font-mono text-red-500">
                       Rp {r.total_expense.toLocaleString()}
+                    </td>
+                    <td className="py-2.5 text-right font-mono text-amber-600">
+                      Rp {(r.total_deposit ?? 0).toLocaleString()}
                     </td>
                     <td className={`py-2.5 text-right font-mono font-semibold ${
                       r.profit >= 0 ? "text-emerald-600" : "text-red-500"

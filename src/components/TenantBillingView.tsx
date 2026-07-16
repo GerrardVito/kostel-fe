@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Bill } from "../types";
-import { CreditCard, Wallet, Calendar, CheckCircle2, AlertCircle, RefreshCw, Layers, ArrowRight, FileText, Landmark, Zap, Wifi, ShieldCheck, Check } from "lucide-react";
+import { CreditCard, Wallet, Calendar, CheckCircle2, AlertCircle, RefreshCw, Layers, ArrowRight, FileText, Landmark, Zap, Wifi, ShieldCheck, Check, Trash2 } from "lucide-react";
+import { getStoredToken } from "../services/auth";
 
 interface TenantBillingViewProps {
   bills: Bill[];
@@ -11,6 +12,36 @@ interface TenantBillingViewProps {
 export default function TenantBillingView({ bills, onPayBill, onPayAllBills }: TenantBillingViewProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>("All");
   const [showLedgerReceipt, setShowLedgerReceipt] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
+  const [deleteMessage, setDeleteMessage] = useState<string>("");
+
+  const handleDeleteHistory = async () => {
+    if (!window.confirm("Delete all paid bill history? This cannot be undone.")) return;
+    setDeleting(true);
+    setDeleteMessage("");
+    try {
+      const res = await fetch("/api/payments/history", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getStoredToken()}`,
+        },
+        body: JSON.stringify({ status: "paid" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDeleteMessage(data.message || "History cleared");
+        window.location.reload();
+      } else {
+        const data = await res.json();
+        setDeleteMessage(data.error || "Failed to clear history");
+      }
+    } catch {
+      setDeleteMessage("Network error");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Divide into unpaid/paid
   const unpaidBills = bills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE");
@@ -146,7 +177,7 @@ export default function TenantBillingView({ bills, onPayBill, onPayAllBills }: T
       <section className="mb-8 font-sans">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-display text-lg font-bold text-primary">Payment History</h3>
-          <div className="flex gap-2 text-xs">
+          <div className="flex gap-2 text-xs items-center">
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
@@ -156,6 +187,15 @@ export default function TenantBillingView({ bills, onPayBill, onPayAllBills }: T
                 <option key={m} value={m}>{m} 2023</option>
               ))}
             </select>
+            <button
+              onClick={handleDeleteHistory}
+              disabled={deleting || paidBills.length === 0}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Delete all paid bill history"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {deleting ? "Clearing..." : "Clear History"}
+            </button>
           </div>
         </div>
 
@@ -202,6 +242,11 @@ export default function TenantBillingView({ bills, onPayBill, onPayAllBills }: T
               </div>
             )}
           </div>
+          {deleteMessage && (
+            <div className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-50 border-t border-slate-100">
+              {deleteMessage}
+            </div>
+          )}
           <button
             onClick={() => setShowLedgerReceipt(true)}
             className="w-full py-4 bg-slate-50 text-primary font-sans text-xs font-bold hover:bg-slate-100 transition-colors uppercase gap-1 flex items-center justify-center border-t border-slate-100 cursor-pointer"
