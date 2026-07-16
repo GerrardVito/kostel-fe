@@ -68,3 +68,16 @@ export async function getMe(token: string): Promise<User> {
   if (!res.ok) throw new Error("Session expired");
   return res.json();
 }
+
+export function openGoogleLogin(role: "tenant" | "owner" = "tenant") {
+  const url = `${window.location.origin}/api/auth/google?role=${role}`;
+  const w = 500;
+  const h = 600;
+  const left = window.screenX + (window.outerWidth - w) / 2;
+  const top = window.screenY + (window.outerHeight - h) / 2;
+  window.open(
+    url,
+    "google-oauth",
+    `width=${w},height=${h},left=${left},top=${top},popup=1`
+  );
+}

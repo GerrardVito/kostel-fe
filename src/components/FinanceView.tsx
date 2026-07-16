@@ -17,6 +17,12 @@ import {
 interface FinanceViewProps {
   properties: Property[];
   token: string | null;
+  userId?: number;
+  financeSummary?: {
+    total_income: number;
+    total_expense: number;
+    net_profit: number;
+  };
 }
 
 interface Transaction {
@@ -45,26 +51,28 @@ interface Room {
   property_id: number;
 }
 
-const MANUAL_STORAGE_KEY = "kostel_manual_transactions";
+function getStorageKey(userId?: number) {
+  return `kostel_manual_transactions_${userId || "anonymous"}`;
+}
 
-function loadManualTransactions(): Transaction[] {
+function loadManualTransactions(userId?: number): Transaction[] {
   try {
-    const raw = localStorage.getItem(MANUAL_STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey(userId));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function saveManualTransactions(txs: Transaction[]) {
-  localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(txs));
+function saveManualTransactions(userId: number | undefined, txs: Transaction[]) {
+  localStorage.setItem(getStorageKey(userId), JSON.stringify(txs));
 }
 
-export default function FinanceView({ properties, token }: FinanceViewProps) {
+export default function FinanceView({ properties, token, userId, financeSummary }: FinanceViewProps) {
   const [roomProfits, setRoomProfits] = useState<RoomProfit[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [apiTransactions, setApiTransactions] = useState<Transaction[]>([]);
-  const [manualTransactions, setManualTransactions] = useState<Transaction[]>(loadManualTransactions);
+  const [manualTransactions, setManualTransactions] = useState<Transaction[]>(() => loadManualTransactions(userId));
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
@@ -94,8 +102,8 @@ export default function FinanceView({ properties, token }: FinanceViewProps) {
 
   // Persist manual transactions whenever they change
   useEffect(() => {
-    saveManualTransactions(manualTransactions);
-  }, [manualTransactions]);
+    saveManualTransactions(userId, manualTransactions);
+  }, [manualTransactions, userId]);
 
   const fetchFinanceData = async () => {
     setLoading(true);
@@ -206,14 +214,19 @@ export default function FinanceView({ properties, token }: FinanceViewProps) {
     });
   }, [allTransactions, searchTerm, typeFilter, monthFilter]);
 
-  // Summary from filtered data
-  const totalIncome = filteredTransactions
+  // Summary: use shared API data by default, filtered data when user applies filters
+  const isFiltered = monthFilter !== "all" || typeFilter !== "all" || searchTerm !== "";
+  const filteredIncome = filteredTransactions
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = filteredTransactions
+  const filteredExpense = filteredTransactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
-  const netProfit = totalIncome - totalExpense;
+  const filteredProfit = filteredIncome - filteredExpense;
+
+  const totalIncome = isFiltered ? filteredIncome : (financeSummary?.total_income ?? filteredIncome);
+  const totalExpense = isFiltered ? filteredExpense : (financeSummary?.total_expense ?? filteredExpense);
+  const netProfit = isFiltered ? filteredProfit : (financeSummary?.net_profit ?? filteredProfit);
 
   const getIncomeDescription = (roomId: string, notes: string) => {
     const room = rooms.find((r) => r.room_id.toString() === roomId);

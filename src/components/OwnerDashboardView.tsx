@@ -15,6 +15,11 @@ interface OwnerDashboardViewProps {
   activityLogs: ActivityLog[];
   applications: TenantApplication[];
   token: string;
+  financeSummary?: {
+    total_income: number;
+    total_expense: number;
+    net_profit: number;
+  };
   onResolveMaintenance: (id: string, status: "PENDING" | "PROCESSING" | "COMPLETED") => void;
   onSendReminders: () => void;
   onRefreshData: () => void;
@@ -27,6 +32,7 @@ export default function OwnerDashboardView({
   activityLogs,
   applications,
   token,
+  financeSummary,
   onResolveMaintenance,
   onSendReminders,
   onRefreshData,
@@ -80,10 +86,10 @@ export default function OwnerDashboardView({
   const safeActivityLogs = activityLogs ?? [];
   const safeMaintenanceRequests = maintenanceRequests ?? [];
 
-  // Financial estimations
+  // Financial estimations — use shared summary from /api/finances/summary
   const unpaidBillsCount = safeBills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE").length;
   const unpaidAmountValue = safeBills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE").reduce((acc, b) => acc + b.amount, 0);
-  const paidAmountValue = safeBills.filter(b => b.status === "PAID").reduce((acc, b) => acc + b.amount, 0);
+  const paidAmountValue = financeSummary?.total_income ?? safeBills.filter(b => b.status === "PAID").reduce((acc, b) => acc + b.amount, 0);
 
   // Filter logs or tenants
   const getRoomLabel = (room: unknown): string => {
@@ -225,7 +231,7 @@ export default function OwnerDashboardView({
                     {/* Localization context matches html specular mockup */}
                     <div className="flex items-baseline gap-2 mt-1">
                       <h5 className="font-display text-2xl font-black text-emerald-600">
-                        Rp {paidAmountValue > 0 ? paidAmountValue.toLocaleString() : "42,500"}
+                        Rp {paidAmountValue.toLocaleString()}
                       </h5>
                     </div>
                   </div>

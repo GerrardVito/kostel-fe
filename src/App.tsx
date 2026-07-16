@@ -8,6 +8,7 @@ import {
 // Components
 import Header from "./components/Header";
 import AuthView from "./components/AuthView";
+import GoogleCallback from "./components/GoogleCallback";
 import TenantHomeView from "./components/TenantHomeView";
 import TenantBillingView from "./components/TenantBillingView";
 import OwnerPropertiesView from "./components/OwnerPropertiesView";
@@ -33,6 +34,11 @@ import { motion, AnimatePresence } from "motion/react";
 import { clearAuth, getStoredToken, getStoredUser, getMe } from "./services/auth";
 
 export default function App() {
+  // Handle Google OAuth popup callback — render minimal page that posts token back
+  if (window.location.pathname === "/auth/google/callback") {
+    return <GoogleCallback />;
+  }
+
   // Auth state
   const [token, setToken] = useState<string | null>(getStoredToken);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(getStoredUser);
@@ -68,6 +74,13 @@ export default function App() {
 
   // Applications state (owner view)
   const [applications, setApplications] = useState<TenantApplication[]>([]);
+
+  // Finance summary from shared API endpoint
+  const [financeSummary, setFinanceSummary] = useState<{
+    total_income: number;
+    total_expense: number;
+    net_profit: number;
+  }>({ total_income: 0, total_expense: 0, net_profit: 0 });
 
   // Modal displays
   const [showMaintModal, setShowMaintModal] = useState(false);
@@ -160,6 +173,21 @@ export default function App() {
           const appData = await appRes.json();
           setApplications(appData.data || appData || []);
         }
+
+        // 7. Finance summary (shared endpoint for dashboard + finance page)
+        try {
+          const summaryRes = await fetch('/api/finances/summary', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (summaryRes.ok) {
+            const summaryData = await summaryRes.json();
+            setFinanceSummary({
+              total_income: summaryData.total_income ?? 0,
+              total_expense: summaryData.total_expense ?? 0,
+              net_profit: summaryData.net_profit ?? 0,
+            });
+          }
+        } catch {}
       }
     } catch (e) {
       console.error("Failed to fetch full-stack server state:", e);
@@ -1052,6 +1080,7 @@ export default function App() {
                 activityLogs={activityLogs}
                 applications={applications}
                 token={token}
+                financeSummary={financeSummary}
                 onResolveMaintenance={handleResolveMaintenance}
                 onSendReminders={handleSendReminders}
                 onRefreshData={fetchAllData}
@@ -1174,7 +1203,7 @@ export default function App() {
             )}
 
             {ownerTab === "finance" && (
-              <FinanceView properties={properties} token={token} />
+              <FinanceView properties={properties} token={token} userId={currentUser?.id} financeSummary={financeSummary} />
             )}
 
             {ownerTab === "profile" && (
