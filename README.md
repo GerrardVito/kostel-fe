@@ -20,7 +20,7 @@ In short:
 ## Development
 ```bash
 npm install
-npm run dev      # starts Vite on http://localhost:5173
+npm run dev      # starts Vite on http://localhost:4008
 npm run build    # production build → dist/
 npm run preview  # preview the production build locally
 ```
@@ -36,8 +36,24 @@ src/
 ├── initialData.ts      # dev/demo seed helpers
 ├── services/
 │   └── auth.ts         # auth API helpers
-└── components/         # ~33 screen components (Owner*, Tenant*, Onboarding,
-                        #   Inspections, Checklist, Deposit, Maintenance, …)
+├── pages/
+│   └── LandingPage.tsx # public landing page (route: "/")
+└── components/
+    ├── landing/        # 12 landing page section components
+    │   ├── Header.tsx
+    │   ├── Hero.tsx
+    │   ├── ProblemSection.tsx
+    │   ├── FeatureTabs.tsx
+    │   ├── HowItWorks.tsx
+    │   ├── FinanceSection.tsx
+    │   ├── BenefitsSection.tsx
+    │   ├── Testimonials.tsx
+    │   ├── Pricing.tsx
+    │   ├── FAQ.tsx
+    │   ├── CTABand.tsx
+    │   └── Footer.tsx
+    └── ~38 screen components (Owner*, Tenant*, Onboarding,
+        Inspections, Checklist, Deposit, Maintenance, …)
 ```
 
 ## Deployment

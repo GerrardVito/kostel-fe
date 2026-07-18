@@ -48,7 +48,6 @@ export async function register(data: {
   email: string;
   password: string;
   phone?: string;
-  role: "tenant" | "owner";
 }): Promise<void> {
   const res = await fetch(`${BASE}/register`, {
     method: "POST",
@@ -69,8 +68,8 @@ export async function getMe(token: string): Promise<User> {
   return res.json();
 }
 
-export function openGoogleLogin(role: "tenant" | "owner" = "tenant") {
-  const url = `${window.location.origin}/api/auth/google?role=${role}`;
+export function openGoogleLogin() {
+  const url = `${window.location.origin}/api/auth/google`;
   const w = 500;
   const h = 600;
   const left = window.screenX + (window.outerWidth - w) / 2;

@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Building2,
   User,
-  ChevronRight,
   ArrowLeft,
   Mail,
   Lock,
@@ -15,15 +14,14 @@ import {
 import { User as UserType } from "../types";
 import { openGoogleLogin, saveAuth } from "../services/auth";
 
-type AuthStep = "role-select" | "register" | "login";
+type AuthStep = "register" | "login";
 
 interface AuthViewProps {
-  onLoginSuccess: (token: string, user: UserType, role: "tenant" | "owner") => void;
+  onLoginSuccess: (token: string, user: UserType) => void;
 }
 
 export default function AuthView({ onLoginSuccess }: AuthViewProps) {
-  const [step, setStep] = useState<AuthStep>("role-select");
-  const [selectedRole, setSelectedRole] = useState<"tenant" | "owner" | null>(null);
+  const [step, setStep] = useState<AuthStep>("register");
 
   // Register form
   const [regName, setRegName] = useState("");
@@ -46,17 +44,12 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       if (event.data?.type === "google-auth") {
         const { token, user } = event.data;
         saveAuth(token, user);
-        onLoginSuccess(token, user, user.role as "tenant" | "owner");
+        onLoginSuccess(token, user);
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [onLoginSuccess]);
-
-  const handleSelectRole = (role: "tenant" | "owner") => {
-    setSelectedRole(role);
-    setStep("register");
-  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +63,6 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
         email: regEmail,
         password: regPassword,
         phone: regPhone || undefined,
-        role: selectedRole!,
       });
       setSuccessMsg("Account created successfully! Please log in.");
       setLoginEmail(regEmail);
@@ -89,10 +81,10 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
     setSuccessMsg("");
     setLoading(true);
     try {
-      const { login, saveAuth } = await import("../services/auth");
+      const { login } = await import("../services/auth");
       const { token, user } = await login(loginEmail, loginPassword);
       saveAuth(token, user);
-      onLoginSuccess(token, user, user.role as "tenant" | "owner");
+      onLoginSuccess(token, user);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -103,7 +95,6 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   const goBack = () => {
     setError("");
     setSuccessMsg("");
-    if (step === "register") setStep("role-select");
     if (step === "login") {
       setLoginPassword("");
       setStep("register");
@@ -127,58 +118,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
         </div>
 
         <AnimatePresence mode="wait">
-          {step === "role-select" && (
-            <motion.div
-              key="role-select"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.25 }}
-              className="space-y-4"
-            >
-              <p className="text-center text-slate-600 text-sm font-medium mb-6">
-                Choose your role to get started
-              </p>
-
-              <button
-                onClick={() => handleSelectRole("tenant")}
-                className="w-full p-6 bg-white rounded-2xl border-2 border-slate-200 hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer text-left"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-100 transition-colors">
-                    <User className="w-7 h-7" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-display font-bold text-lg text-slate-900">Resident Tenant</h3>
-                    <p className="text-slate-500 text-xs mt-1">
-                      View bills, submit maintenance requests, and manage your rental profile
-                    </p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleSelectRole("owner")}
-                className="w-full p-6 bg-white rounded-2xl border-2 border-slate-200 hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer text-left"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
-                    <Building2 className="w-7 h-7" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-display font-bold text-lg text-slate-900">Property Owner / Admin</h3>
-                    <p className="text-slate-500 text-xs mt-1">
-                      Manage properties, track payments, and oversee maintenance operations
-                    </p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
-                </div>
-              </button>
-            </motion.div>
-          )}
-
-          {step === "register" && selectedRole && (
+          {step === "register" && (
             <motion.div
               key="register"
               initial={{ opacity: 0, y: 20 }}
@@ -187,20 +127,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
               transition={{ duration: 0.25 }}
             >
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <button
-                    onClick={goBack}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <ArrowLeft className="w-4 h-4 text-slate-500" />
-                  </button>
-                  <div>
-                    <h2 className="font-display font-bold text-lg text-slate-900">Create Account</h2>
-                    <p className="text-slate-500 text-xs">
-                      Registering as{" "}
-                      <span className="font-semibold text-primary capitalize">{selectedRole}</span>
-                    </p>
-                  </div>
+                <div className="mb-6">
+                  <h2 className="font-display font-bold text-lg text-slate-900">Create Account</h2>
+                  <p className="text-slate-500 text-xs">Get started with KOSTEL</p>
                 </div>
 
                 <form onSubmit={handleRegister} className="space-y-4">
@@ -304,7 +233,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
 
                 <button
                   type="button"
-                  onClick={() => openGoogleLogin(selectedRole || "tenant")}
+                  onClick={() => openGoogleLogin()}
                   className="w-full py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-sm rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2.5"
                 >
                   <svg className="w-4.5 h-4.5" viewBox="0 0 24 24">
@@ -318,7 +247,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
 
                 <div className="mt-4 text-center">
                   <button
-                    onClick={() => { setStep("login"); setLoginEmail(regEmail); setError(""); setSuccessMsg(""); }}
+                    onClick={() => { setStep("login"); setError(""); setSuccessMsg(""); }}
                     className="text-xs text-slate-500 hover:text-primary transition-colors font-medium cursor-pointer"
                   >
                     Already have an account? <span className="underline">Log in</span>
@@ -414,7 +343,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
 
                 <button
                   type="button"
-                  onClick={() => openGoogleLogin("tenant")}
+                  onClick={() => openGoogleLogin()}
                   className="w-full py-3 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-sm rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2.5"
                 >
                   <svg className="w-4.5 h-4.5" viewBox="0 0 24 24">

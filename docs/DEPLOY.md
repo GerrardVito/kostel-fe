@@ -1,156 +1,80 @@
-# Kostel Deployment Guide
+# Kostel Frontend — Deployment Guide
 
-## Server Info
-- IP: 167.71.204.121
-- SSH Port: 5522
-- User: kostel
-- PG Port: 5510
-- PG User: kostel
-- PG DB: kostel
+This repo is a **pure SPA** (React + Vite). It has no server, no database, and
+no Prisma. The built `dist/` folder is served by Nginx, which also proxies
+`/api` to the NestJS backend.
+
+> **Backend deploy script handles both repos.**
+> See `kostel-be/deploy/deploy.sh` for the automated end-to-end flow.
 
 ---
 
-## Step 1: Build Frontend (Local)
+## Server Info
 
-```powershell
-cd D:\appfolder\kostel\kostel-FE
-npm run build
-```
+| Item | Value |
+|------|-------|
+| IP | `167.71.204.121` |
+| SSH Port | `5522` |
+| User | `kostel` |
+| FE path | `/home/kostel/projects/kostel-fe` |
+| BE path | `/home/kostel/projects/kostel-be` |
 
-## Step 2: SSH into Server
+---
 
-```powershell
+## Deployment (automated)
+
+The backend repo's deploy script builds and deploys both repos:
+
+```bash
 ssh -p 5522 kostel@167.71.204.121
+cd /home/kostel/projects/kostel-be
+bash deploy/deploy.sh
 ```
 
-## Step 3: Install Node.js (if not installed)
+This runs:
+1. `git pull` in both repos
+2. `npm ci` in BE (production deps) + `npm ci && npm run build` in FE
+3. `prisma generate && prisma db push` (schema lives in BE)
+4. `npm run build` in BE (NestJS → `dist/`)
+5. `pm2 restart kostel-be`
+6. `nginx -t && nginx -s reload`
+
+---
+
+## Manual Deployment (FE only)
+
+If you only need to update the frontend:
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-node -v  # should show v20.x
-npm -v
+# 1. Build locally
+cd D:\appfolder\kostel\kostel-fe
+npm run build
+
+# 2. Upload dist to server
+scp -r -P 5522 dist/* kostel@167.71.204.121:/home/kostel/projects/kostel-fe/dist/
+
+# 3. Reload nginx (if needed)
+ssh -p 5522 kostel@167.71.204.121 "sudo nginx -t && sudo nginx -s reload"
 ```
 
-## Step 4: Install Nginx + PM2
+---
 
+## Nginx Configuration
+
+Production nginx config lives in `kostel-be/deploy/nginx.conf`. It:
+
+- Serves `kostel-fe/dist` as static files (SPA fallback to `index.html`)
+- Proxies `/api/` to NestJS on `127.0.0.1:4000`
+- Serves `/uploads/` as static files from `kostel-be/uploads/`
+- Caches static assets (JS, CSS, images, fonts) for 1 year
+- Allows uploads up to 10MB (contract PDFs, ID cards, signatures)
+
+Install on server:
 ```bash
-sudo apt update
-sudo apt install -y nginx
-sudo npm install -g pm2 tsx
-```
-
-## Step 5: Upload Project Files
-
-From your Windows machine (run in PowerShell):
-
-```powershell
-# Set working directory
-cd D:\appfolder\kostel\kostel-FE
-
-# Create remote directory
-ssh -p 5522 kostel@167.71.204.121 "mkdir -p /home/kostel/kostel-FE"
-
-# Upload dist folder (built frontend)
-scp -r -P 5522 dist/* kostel@167.71.204.121:/home/kostel/kostel-FE/dist/
-
-# Upload server source
-scp -r -P 5522 src/server/* kostel@167.71.204.121:/home/kostel/kostel-FE/src/server/
-
-# Upload prisma folder
-scp -r -P 5522 prisma/* kostel@167.71.204.121:/home/kostel/kostel-FE/prisma/
-
-# Upload config files
-scp -P 5522 package.json kostel@167.71.204.121:/home/kostel/kostel-FE/
-scp -P 5522 package-lock.json kostel@167.71.204.121:/home/kostel/kostel-FE/
-scp -P 5522 ecosystem.config.js kostel@167.71.204.121:/home/kostel/kostel-FE/
-scp -P 5522 .env.production kostel@167.71.204.121:/home/kostel/kostel-FE/.env
-```
-
-## Step 6: Setup on Server (SSH in)
-
-```bash
-cd /home/kostel/kostel-FE
-
-# Install dependencies
-npm install
-
-# Generate Prisma client
-npx prisma generate
-
-# Run database migrations
-npx prisma migrate deploy
-```
-
-**Note:** Edit `.env` on server with your actual database password:
-```bash
-nano .env
-```
-Change `your_password_here` to the actual PostgreSQL password.
-
-## Step 7: Configure Nginx
-
-```bash
-sudo nano /etc/nginx/sites-available/kostel
-```
-
-Paste this content (update `server_name` with your domain):
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    # Frontend static files
-    location / {
-        root /home/kostel/kostel-FE/dist;
-        index index.html;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API proxy
-    location /api {
-        proxy_pass http://127.0.0.1:4000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 86400;
-    }
-
-    # Uploads proxy
-    location /uploads {
-        proxy_pass http://127.0.0.1:4000;
-    }
-}
-```
-
-Enable the site:
-```bash
+sudo cp /home/kostel/projects/kostel-be/deploy/nginx.conf /etc/nginx/sites-available/kostel
 sudo ln -sf /etc/nginx/sites-available/kostel /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-## Step 8: Start with PM2
-
-```bash
-cd /home/kostel/kostel-FE
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup  # follow the instructions it gives you
-```
-
-## Step 9: Open Firewall
-
-```bash
-sudo ufw allow 80/tcp
-sudo ufw allow 5522/tcp
-sudo ufw reload
+sudo nginx -t && sudo nginx -s reload
 ```
 
 ---
@@ -161,16 +85,18 @@ sudo ufw reload
 # SSH into server
 ssh -p 5522 kostel@167.71.204.121
 
-# Check PM2 status
+# Check PM2 status (backend)
 pm2 status
 
-# View logs
-pm2 logs kostel-api
+# View backend logs
+pm2 logs kostel-be
 
-# Restart server
-pm2 restart kostel-api
+# Restart backend
+pm2 restart kostel-be
 
-# Check nginx
+# Check nginx config
 sudo nginx -t
+
+# Check nginx status
 sudo systemctl status nginx
 ```

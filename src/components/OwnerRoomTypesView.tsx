@@ -358,10 +358,11 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
+          roomTypeId: selectedType.id,
           roomNumber: addRoomNumber,
           monthlyPrice: selectedType.monthlyPrice,
           status: "available",
-          roomType: selectedType.name,
+          floorNumber: addRoomFloor ? parseInt(addRoomFloor) : undefined,
         }),
       });
       if (res.ok) {
@@ -369,6 +370,9 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
         setAddRoomNumber("");
         setAddRoomFloor("");
         fetchRoomTypes();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error("Failed to add room:", res.status, err);
       }
     } catch (e) {
       console.error("Failed to add room:", e);
