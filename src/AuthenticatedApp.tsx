@@ -21,12 +21,14 @@ import ResolveMaintenanceModal from "./components/ResolveMaintenanceModal";
 import NoHomeTenantView from "./components/NoHomeTenantView";
 import RoomSelectionView from "./components/RoomSelectionView";
 import ContractSigningView from "./components/ContractSigningView";
+import TermsAndConditionsView from "./components/TermsAndConditionsView";
 import TenantApplicationForm from "./components/TenantApplicationForm";
 import TenantApplicationStatus from "./components/TenantApplicationStatus";
 import ChecklistSessionView from "./components/ChecklistSessionView";
 import PaymentView from "./components/PaymentView";
 import OwnerSurveyView from "./components/OwnerSurveyView";
 import FinanceView from "./components/FinanceView";
+import OwnerAdminManager from "./components/OwnerAdminManager";
 
 // Icons & Transition utilities
 import { Home, CreditCard, Wrench, User, RotateCcw, Building2, Bell, Shield, Calendar, MapPin, Check, Plus, AlertTriangle, Play, RefreshCw, ClipboardList, DollarSign } from "lucide-react";
@@ -40,9 +42,10 @@ export default function AuthenticatedApp() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(getStoredUser);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Role ΓÇö manual override or derived from user
+  // Role — manual override or derived from user.
+  // "admin" delegates share the owner experience in the UI.
   const [manualRole, setManualRole] = useState<"tenant" | "owner" | null>(null);
-  const role = (manualRole || currentUser?.role || "owner") as "tenant" | "owner";
+  const role = (manualRole || (currentUser?.role === "tenant" ? "tenant" : "owner")) as "tenant" | "owner";
 
   // Active Bottom Navigation Tab for Tenant ("home" | "billing" | "support" | "profile")
   const [tenantTab, setTenantTab] = useState<"home" | "billing" | "support" | "profile">("home");
@@ -148,7 +151,25 @@ export default function AuthenticatedApp() {
       const maintRes = await fetch('/api/maintenance-requests', { headers: maintHeaders });
       if (maintRes.ok) {
         const maintData = await maintRes.json();
-        setMaintenanceRequests(maintData);
+        const statusMap: Record<string, MaintenanceRequest["status"]> = {
+          "scheduled": "PENDING",
+          "in_progress": "PROCESSING",
+          "completed": "COMPLETED",
+          "cancelled": "COMPLETED",
+        };
+        const mapped: MaintenanceRequest[] = (Array.isArray(maintData) ? maintData : []).map((r: any) => ({
+          id: String(r.maintenance_id ?? r.id ?? ""),
+          title: r.maintenance_title ?? r.title ?? "",
+          description: r.description ?? "",
+          status: statusMap[r.status] ?? "PENDING",
+          date: r.created_at ? new Date(r.created_at).toLocaleDateString() : r.date ?? "",
+          room: r.room?.room_number ?? r.room ?? "",
+          propertyName: r.property?.property_name ?? r.propertyName ?? "",
+          urgent: r.urgent ?? false,
+          image: r.image_urls?.[0] ?? r.image ?? undefined,
+          images: r.image_urls ?? r.images ?? undefined,
+        }));
+        setMaintenanceRequests(mapped);
       }
 
       // 5. Dashboard Stats & Logs
@@ -160,8 +181,8 @@ export default function AuthenticatedApp() {
         setActivityLogs(Array.isArray(statsData.logs) ? statsData.logs : []);
       }
 
-      // 6. Pending applications (for owner)
-      if (currentUser?.role === "owner" && token) {
+      // 6. Pending applications (for owner / admin)
+      if ((currentUser?.role === "owner" || currentUser?.role === "admin") && token) {
         const appRes = await fetch('/api/applications/pending', {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -199,80 +220,9 @@ export default function AuthenticatedApp() {
     }
   }, [token, currentUser?.hasProperty]);
 
-  // Invite link: auto-submit application when an invite code is stored
-  const hasProcessedInvite = useRef(false);
-  useEffect(() => {
-    if (!token || !currentUser || hasProcessedInvite.current) return;
-    const inviteCode = localStorage.getItem("kostel_invite_code");
-    if (!inviteCode) return;
-
-    hasProcessedInvite.current = true;
-    (async () => {
-      try {
-        // 1. Look up property by invite code
-        const lookupRes = await fetch(`/api/properties/code/${inviteCode}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!lookupRes.ok) {
-          const data = await lookupRes.json().catch(() => ({}));
-          throw new Error(data.error || data.message || "Property not found");
-        }
-        const property = await lookupRes.json();
-
-        // 2. Auto-submit application
-        const appRes = await fetch("/api/applications", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            property_id: parseInt(property.id.replace("prop-", "")),
-          }),
-        });
-
-        if (appRes.status === 400) {
-          // Already applied or already a member — fetch existing application
-          const meRes = await getMe(token);
-          setCurrentUser(meRes);
-          if (meRes.applicationId) {
-            setOnboardingApplicationId(meRes.applicationId);
-            setOnboardingPropertyId(property.id);
-            setOnboardingPropertyName(property.name);
-            setOnboardingPropertyAddress(property.address);
-            setOnboardingPropertyImage(property.image || "");
-            setOnboardingStep("application-status");
-          }
-        } else if (!appRes.ok) {
-          const data = await appRes.json().catch(() => ({}));
-          throw new Error(data.error || data.message || "Failed to apply");
-        } else {
-          const appData = await appRes.json();
-          setOnboardingApplicationId(appData.application_id);
-          setOnboardingPropertyId(property.id);
-          setOnboardingPropertyName(property.name);
-          setOnboardingPropertyAddress(property.address);
-          setOnboardingPropertyImage(property.image || "");
-          setOnboardingStep("application-status");
-          // Re-fetch user to update hasPendingApplication
-          try {
-            const meRes = await getMe(token);
-            setCurrentUser(meRes);
-          } catch {}
-          triggerNotification(`Applied to ${property.name}`);
-        }
-
-        // Switch to tenant view since they're joining as a tenant
-        setManualRole("tenant");
-      } catch (e) {
-        triggerNotification(
-          e instanceof Error ? `Invite failed: ${e.message}` : "Failed to join property"
-        );
-      } finally {
-        localStorage.removeItem("kostel_invite_code");
-      }
-    })();
-  }, [token, currentUser]);
+  // NOTE: The old auto-submit invite flow has been removed.
+  // Tenants now sign up directly at /invite/:code via TenantInviteSignup,
+  // which calls POST /api/auth/register-tenant and creates an approved application.
 
   // Sync profiles with currentUser (name, avatar)
   useEffect(() => {
@@ -371,10 +321,15 @@ export default function AuthenticatedApp() {
   // 3. Resolve, advance or reject maintenance states inside Owner views
   const handleResolveMaintenance = async (id: string, newStatus: "PENDING" | "PROCESSING" | "COMPLETED", actualCost?: number) => {
     try {
+      const statusMap: Record<string, string> = {
+        "PENDING": "scheduled",
+        "PROCESSING": "in_progress",
+        "COMPLETED": "completed",
+      };
       const res = await fetch(`/api/maintenance-requests/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus, actual_cost: actualCost })
+        body: JSON.stringify({ status: statusMap[newStatus] || newStatus.toLowerCase(), actual_cost: actualCost })
       });
       if (res.ok) {
         triggerNotification(`Dispatched ticket status changed to: ${newStatus}`);
@@ -388,10 +343,20 @@ export default function AuthenticatedApp() {
   // 4. Submit fresh maintenance ticket as tenant
   const handleCreateMaintenance = async (title: string, description: string, urgent: boolean) => {
     try {
+      // Get tenant's property_id from their assignment
+      const tenantRes = await fetch('/api/tenants/me', { headers: { Authorization: `Bearer ${token}` } });
+      const tenantData = tenantRes.ok ? await tenantRes.json() : null;
+      const propertyId = tenantData?.propertyId ? parseInt(tenantData.propertyId.replace('prop-', '')) : null;
+
       const res = await fetch('/api/maintenance-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ title, description, urgent })
+        body: JSON.stringify({
+          maintenance_title: title,
+          description,
+          property_id: propertyId,
+          status: 'scheduled',
+        })
       });
       if (res.ok) {
         if (urgent) {
@@ -445,6 +410,13 @@ export default function AuthenticatedApp() {
 
   // Auth gate
   const handleLoginSuccess = (newToken: string, user: AppUser) => {
+    // Clear stale onboarding state from any previous session
+    setOnboardingStep(null);
+    hasDeterminedStep.current = false;
+    setJustCheckedOut(false);
+    localStorage.removeItem("kostel_onboarding_step");
+    localStorage.removeItem("kostel_invite_code");
+
     setToken(newToken);
     setCurrentUser(user);
     setManualRole(null);
@@ -465,7 +437,7 @@ export default function AuthenticatedApp() {
 
   // Onboarding state for new tenants
   const hasDeterminedStep = useRef(false);
-  const [onboardingStep, setOnboardingStep] = useState<"nohome" | "room-type-selection" | "application" | "application-status" | "room" | "payment" | "contract" | "checklist" | null>(() => {
+  const [onboardingStep, setOnboardingStep] = useState<"nohome" | "room-type-selection" | "application" | "application-status" | "room" | "payment" | "terms" | "contract" | "checklist" | null>(() => {
     const saved = localStorage.getItem("kostel_onboarding_step");
     return saved ? (saved as any) : null;
   });
@@ -507,6 +479,9 @@ export default function AuthenticatedApp() {
     const saved = localStorage.getItem("kostel_onboarding_assignmentId");
     return saved ? parseInt(saved) : null;
   });
+  const [onboardingTermsAgreed, setOnboardingTermsAgreed] = useState(() => {
+    return localStorage.getItem("kostel_onboarding_termsAgreed") === "true";
+  });
 
   // Persist onboarding state to localStorage
   useEffect(() => {
@@ -526,6 +501,7 @@ export default function AuthenticatedApp() {
       localStorage.setItem("kostel_onboarding_monthlyPrice", String(onboardingMonthlyPrice));
       localStorage.setItem("kostel_onboarding_proratedAmount", String(onboardingProratedAmount));
       localStorage.setItem("kostel_onboarding_assignmentId", String(onboardingAssignmentId || ""));
+      localStorage.setItem("kostel_onboarding_termsAgreed", String(onboardingTermsAgreed));
     } else {
       localStorage.removeItem("kostel_onboarding_step");
       localStorage.removeItem("kostel_onboarding_propertyId");
@@ -542,8 +518,9 @@ export default function AuthenticatedApp() {
       localStorage.removeItem("kostel_onboarding_monthlyPrice");
       localStorage.removeItem("kostel_onboarding_proratedAmount");
       localStorage.removeItem("kostel_onboarding_assignmentId");
+      localStorage.removeItem("kostel_onboarding_termsAgreed");
     }
-  }, [onboardingStep, onboardingPropertyId, onboardingPropertyName, onboardingPropertyAddress, onboardingPropertyImage, onboardingRoomTypes, onboardingSelectedRoomType, onboardingApplicationId, onboardingRoomId, onboardingRoomNumber, onboardingRoomTypeName, onboardingDepositPrice, onboardingMonthlyPrice, onboardingProratedAmount, onboardingAssignmentId]);
+  }, [onboardingStep, onboardingPropertyId, onboardingPropertyName, onboardingPropertyAddress, onboardingPropertyImage, onboardingRoomTypes, onboardingSelectedRoomType, onboardingApplicationId, onboardingRoomId, onboardingRoomNumber, onboardingRoomTypeName, onboardingDepositPrice, onboardingMonthlyPrice, onboardingProratedAmount, onboardingAssignmentId, onboardingTermsAgreed]);
 
   // Determine onboarding step on mount and after login
   useEffect(() => {
@@ -598,8 +575,8 @@ export default function AuthenticatedApp() {
                   setOnboardingStep("checklist");
                 }
               } else {
-                // Contract not signed (either no contract or still draft)
-                setOnboardingStep("contract");
+                // Contract not signed - check if terms agreed
+                setOnboardingStep(onboardingTermsAgreed ? "contract" : "terms");
               }
             } else if (currentUser.hasApprovedApplication) {
               // Approved but no room assigned yet
@@ -681,10 +658,10 @@ export default function AuthenticatedApp() {
       if (res.ok) {
         const data = await res.json();
         if (data.assignment_id) {
-          // Room already assigned - skip to contract
+          // Room already assigned - skip to terms/contract
           setOnboardingAssignmentId(data.assignment_id);
           setOnboardingRoomNumber(data.roomNumber || "");
-          setOnboardingStep("contract");
+          setOnboardingStep(onboardingTermsAgreed ? "contract" : "terms");
           return;
         }
       }
@@ -698,7 +675,7 @@ export default function AuthenticatedApp() {
 
   const handlePaymentComplete = (assignmentId: number) => {
     setOnboardingAssignmentId(assignmentId);
-    setOnboardingStep("contract");
+    setOnboardingStep("terms");
   };
 
   const handleOnboardingComplete = async () => {
@@ -788,8 +765,8 @@ export default function AuthenticatedApp() {
     if (currentUser?.role === "tenant" && !currentUser.hasProperty && !onboardingStep) {
       setOnboardingStep("nohome");
     }
-    // Owners should never have an onboarding step ΓÇö clear stale localStorage
-    if (currentUser?.role === "owner" && onboardingStep) {
+    // Owners and admins should never have an onboarding step — clear stale localStorage
+    if ((currentUser?.role === "owner" || currentUser?.role === "admin") && onboardingStep) {
       setOnboardingStep(null);
     }
   }, [currentUser?.role, currentUser?.hasProperty, onboardingStep]);
@@ -934,9 +911,21 @@ export default function AuthenticatedApp() {
             token={token}
             onPaymentComplete={(assignmentId) => {
               setOnboardingAssignmentId(assignmentId);
-              setOnboardingStep("contract");
+              setOnboardingStep("terms");
             }}
             onBack={() => setOnboardingStep("application-status")}
+          />
+        )}
+        {onboardingStep === "terms" && (
+          <TermsAndConditionsView
+            propertyId={onboardingPropertyId}
+            propertyName={onboardingPropertyName}
+            token={token}
+            onAgreed={() => {
+              setOnboardingTermsAgreed(true);
+              setOnboardingStep("contract");
+            }}
+            onBack={() => setOnboardingStep("payment")}
           />
         )}
         {onboardingStep === "contract" && (
@@ -949,7 +938,7 @@ export default function AuthenticatedApp() {
             token={token}
             assignmentId={onboardingAssignmentId}
             onCompleted={handleOnboardingComplete}
-            onBack={() => setOnboardingStep("payment")}
+            onBack={() => setOnboardingStep("terms")}
           />
         )}
         {onboardingStep === "checklist" && onboardingAssignmentId && (
@@ -1185,6 +1174,7 @@ export default function AuthenticatedApp() {
               <OwnerPropertyDetailView
                 property={selectedPropertyDetail}
                 onBack={() => setSelectedPropertyDetail(null)}
+                onNavigateToAdmin={() => setOwnerTab("profile")}
               />
             )}
             {ownerTab === "billing" && !selectedPropertyDetail && selectedProperty && (
@@ -1275,7 +1265,7 @@ export default function AuthenticatedApp() {
             )}
 
             {ownerTab === "finance" && (
-              <FinanceView properties={properties} token={token} userId={currentUser?.id} financeSummary={financeSummary} />
+              <FinanceView properties={properties} token={token} userId={currentUser?.id} financeSummary={financeSummary} onRefresh={fetchAllData} />
             )}
 
             {ownerTab === "profile" && (
@@ -1290,7 +1280,7 @@ export default function AuthenticatedApp() {
                       <h3 className="font-display font-bold text-lg text-slate-900">{ownerProfile.name}</h3>
                       <p className="text-xs text-slate-450">{currentUser?.email || ""}</p>
                       <span className="inline-block mt-2 font-mono text-[9px] uppercase font-bold px-2 py-0.5 bg-primary-container text-white rounded">
-                        ADMIN ACCESS VALID
+                        {currentUser?.role === "admin" ? "DELEGATED ADMIN" : "ADMIN ACCESS VALID"}
                       </span>
                     </div>
                   </div>
@@ -1314,6 +1304,16 @@ export default function AuthenticatedApp() {
                     </div>
                   </div>
 
+                  {/* Delegate Admin Access — only the primary owner can add/remove admins */}
+                  {currentUser?.role === "owner" && (
+                    <OwnerAdminManager
+                      token={token}
+                      properties={properties}
+                      ownerId={currentUser.id}
+                      onNotify={triggerNotification}
+                    />
+                  )}
+
                   <div className="pt-4 border-t border-slate-100 space-y-3">
                     <button
                       onClick={() => { setManualRole("tenant"); triggerNotification("Switched to Tenant view"); }}
@@ -1321,12 +1321,14 @@ export default function AuthenticatedApp() {
                     >
                       Switch to Tenant Profile
                     </button>
-                    <button
-                      onClick={handleResetDemoAndSync}
-                      className="w-full py-3.5 rounded-xl bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-200 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors uppercase"
-                    >
-                      <RotateCcw className="w-4 h-4" /> Reset Demo Seed Database
-                    </button>
+                    {currentUser?.role === "owner" && (
+                      <button
+                        onClick={handleResetDemoAndSync}
+                        className="w-full py-3.5 rounded-xl bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-200 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors uppercase"
+                      >
+                        <RotateCcw className="w-4 h-4" /> Reset Demo Seed Database
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

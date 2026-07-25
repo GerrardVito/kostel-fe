@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from "react";
 import { Property } from "../types";
-import { Building2, MapPin, BedDouble, ArrowRight, Plus, X, Search, Landmark, Trash2 } from "lucide-react";
+import { Building2, MapPin, BedDouble, ArrowRight, Plus, X, Search, Landmark, Trash2, ShieldCheck } from "lucide-react";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import MultiImageUploader from "./MultiImageUploader";
 
@@ -9,6 +9,64 @@ interface OwnerPropertiesViewProps {
   onAddProperty: (newProp: Omit<Property, "id">) => void;
   onDeleteProperty: (id: string) => Promise<void>;
   onViewDetails: (prop: Property) => void;
+}
+
+function PropertyCard({ prop, onDelete, onViewDetails }: { prop: Property; onDelete: (p: Property) => void; onViewDetails: (p: Property) => void }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all duration-300 transform hover:scale-[1.015] flex flex-col justify-between">
+      <div>
+        <div className="relative h-48 bg-slate-100 overflow-hidden group">
+          <img
+            referrerPolicy="no-referrer"
+            src={prop.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80"}
+            alt={prop.name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute top-4 right-4 bg-primary-container/80 text-white font-mono text-xs font-bold px-3 py-1 rounded-full backdrop-blur-xs border border-white/10">
+            {prop.occupancy}% Occupied
+          </div>
+          {prop.inviteCode && (
+            <div className="absolute top-4 left-4 bg-slate-900/70 text-white font-mono text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs border border-white/10">
+              Code: {prop.inviteCode}
+            </div>
+          )}
+        </div>
+
+        <div className="p-5">
+          <h3 className="font-display text-lg font-bold text-slate-900 mb-1.5 min-h-[1.5rem]">
+            {prop.name}
+          </h3>
+          <p className="font-sans text-xs text-slate-500 flex items-center gap-1.5 mb-4 leading-tight min-h-[2.2rem]">
+            <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            {prop.address}
+          </p>
+        </div>
+      </div>
+
+      <div className="px-5 pb-5 pt-4 border-t border-slate-100 flex justify-between items-center">
+        <button
+          onClick={() => onDelete(prop)}
+          className="p-1.5 text-slate-300 hover:text-red-500 transition-colors cursor-pointer"
+          title="Delete property"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-slate-700">
+            <BedDouble className="w-4 h-4 text-primary" />
+            <span className="font-mono text-xs font-semibold">{prop.roomCount} Rooms</span>
+          </div>
+          <button
+            onClick={() => onViewDetails(prop)}
+            className="text-primary hover:text-primary-container font-mono text-xs font-bold flex items-center gap-1.5 group cursor-pointer"
+          >
+            Details
+            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function OwnerPropertiesView({ properties, onAddProperty, onDeleteProperty, onViewDetails }: OwnerPropertiesViewProps) {
@@ -52,6 +110,11 @@ export default function OwnerPropertiesView({ properties, onAddProperty, onDelet
     (prop.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (prop.address || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Group properties by category
+  const ownedProperties = filteredProperties.filter(p => p.category === 'owned' || !p.category);
+  const delegatedProperties = filteredProperties.filter(p => p.category === 'delegated');
+  const hasCategories = properties.some(p => p.category === 'delegated');
 
   // Stats
   const totalUnits = properties.reduce((acc, p) => acc + p.roomCount, 0);
@@ -104,80 +167,77 @@ export default function OwnerPropertiesView({ properties, onAddProperty, onDelet
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {filteredProperties.map((prop) => (
-          <div
-            key={prop.id}
-            className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all duration-300 transform hover:scale-[1.015] flex flex-col justify-between"
-          >
+      {hasCategories ? (
+        <div className="space-y-8">
+          {/* Owned Properties */}
+          {ownedProperties.length > 0 && (
             <div>
-              <div className="relative h-48 bg-slate-100 overflow-hidden group">
-                <img
-                  referrerPolicy="no-referrer"
-                  src={prop.image || "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80"}
-                  alt={prop.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute top-4 right-4 bg-primary-container/80 text-white font-mono text-xs font-bold px-3 py-1 rounded-full backdrop-blur-xs border border-white/10">
-                  {prop.occupancy}% Occupied
-                </div>
-                {prop.inviteCode && (
-                  <div className="absolute top-4 left-4 bg-slate-900/70 text-white font-mono text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-xs border border-white/10">
-                    Code: {prop.inviteCode}
-                  </div>
-                )}
-              </div>
-
-              <div className="p-5">
-                <h3 className="font-display text-lg font-bold text-slate-900 mb-1.5 min-h-[1.5rem]">
-                  {prop.name}
-                </h3>
-                <p className="font-sans text-xs text-slate-500 flex items-center gap-1.5 mb-4 leading-tight min-h-[2.2rem]">
-                  <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                  {prop.address}
-                </p>
+              <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-primary" />
+                Manages as Owner
+                <span className="ml-auto font-mono text-xs text-slate-500">{ownedProperties.length} properties</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {ownedProperties.map((prop) => (
+                  <PropertyCard key={prop.id} prop={prop} onDelete={setDeleteTarget} onViewDetails={onViewDetails} />
+                ))}
               </div>
             </div>
+          )}
 
-            <div className="px-5 pb-5 pt-4 border-t border-slate-100 flex justify-between items-center">
-              <button
-                onClick={() => setDeleteTarget(prop)}
-                className="p-1.5 text-slate-300 hover:text-red-500 transition-colors cursor-pointer"
-                title="Delete property"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 text-slate-700">
-                  <BedDouble className="w-4 h-4 text-primary" />
-                  <span className="font-mono text-xs font-semibold">{prop.roomCount} Rooms</span>
-                </div>
-                <button
-                  onClick={() => onViewDetails(prop)}
-                  className="text-primary hover:text-primary-container font-mono text-xs font-bold flex items-center gap-1.5 group cursor-pointer"
-                >
-                  Details
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
-                </button>
+          {/* Delegated Properties */}
+          {delegatedProperties.length > 0 && (
+            <div>
+              <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                Manages as Admin
+                <span className="ml-auto font-mono text-xs text-slate-500">{delegatedProperties.length} properties</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {delegatedProperties.map((prop) => (
+                  <PropertyCard key={prop.id} prop={prop} onDelete={setDeleteTarget} onViewDetails={onViewDetails} />
+                ))}
               </div>
             </div>
-          </div>
-        ))}
+          )}
 
-        {/* Create Card Shortcut */}
-        <div
-          onClick={() => setShowAddModal(true)}
-          className="border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-8 hover:border-primary hover:bg-slate-25/50 transition-all cursor-pointer group text-center min-h-[360px]"
-        >
-          <div className="w-16 h-16 rounded-full bg-primary/5 group-hover:scale-105 transition-transform flex items-center justify-center mb-4 text-primary">
-            <Plus className="w-6 h-6" />
+          {/* Create Card Shortcut */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div
+              onClick={() => setShowAddModal(true)}
+              className="border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-8 hover:border-primary hover:bg-slate-25/50 transition-all cursor-pointer group text-center min-h-[360px]"
+            >
+              <div className="w-16 h-16 rounded-full bg-primary/5 group-hover:scale-105 transition-transform flex items-center justify-center mb-4 text-primary">
+                <Plus className="w-6 h-6" />
+              </div>
+              <p className="font-display text-lg font-bold text-slate-800">Add Property</p>
+              <p className="font-sans text-xs text-slate-450 max-w-xs mt-1.5 leading-relaxed">
+                Expand your rental portfolio by cataloging a new premium boarding house or residential complex.
+              </p>
+            </div>
           </div>
-          <p className="font-display text-lg font-bold text-slate-800">Add Property</p>
-          <p className="font-sans text-xs text-slate-450 max-w-xs mt-1.5 leading-relaxed">
-            Expand your rental portfolio by cataloging a new premium boarding house or residential complex.
-          </p>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {filteredProperties.map((prop) => (
+            <PropertyCard key={prop.id} prop={prop} onDelete={setDeleteTarget} onViewDetails={onViewDetails} />
+          ))}
+
+          {/* Create Card Shortcut */}
+          <div
+            onClick={() => setShowAddModal(true)}
+            className="border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-8 hover:border-primary hover:bg-slate-25/50 transition-all cursor-pointer group text-center min-h-[360px]"
+          >
+            <div className="w-16 h-16 rounded-full bg-primary/5 group-hover:scale-105 transition-transform flex items-center justify-center mb-4 text-primary">
+              <Plus className="w-6 h-6" />
+            </div>
+            <p className="font-display text-lg font-bold text-slate-800">Add Property</p>
+            <p className="font-sans text-xs text-slate-450 max-w-xs mt-1.5 leading-relaxed">
+              Expand your rental portfolio by cataloging a new premium boarding house or residential complex.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Floating Action Button (FAB) */}
       <button

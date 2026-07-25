@@ -128,8 +128,8 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             >
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <div className="mb-6">
-                  <h2 className="font-display font-bold text-lg text-slate-900">Create Account</h2>
-                  <p className="text-slate-500 text-xs">Get started with KOSTEL</p>
+                  <h2 className="font-display font-bold text-lg text-slate-900">Create Owner Account</h2>
+                  <p className="text-slate-500 text-xs">For property owners — get started with KOSTEL</p>
                 </div>
 
                 <form onSubmit={handleRegister} className="space-y-4">
@@ -216,11 +216,17 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                     ) : (
                       <>
                         <UserPlus className="w-4 h-4" />
-                        Create Account
+                        Create Owner Account
                       </>
                     )}
                   </button>
                 </form>
+
+                <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Are you a tenant? Ask your property owner for an invite link to sign up.
+                  </p>
+                </div>
 
                 <div className="relative my-5">
                   <div className="absolute inset-0 flex items-center">

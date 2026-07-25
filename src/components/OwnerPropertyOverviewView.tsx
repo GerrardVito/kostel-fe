@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Property } from "../types";
-import { ArrowLeft, MapPin, DollarSign, BedDouble, Settings, Copy, Check, X } from "lucide-react";
+import { ArrowLeft, MapPin, DollarSign, BedDouble, Settings, Copy, Check, X, FileText } from "lucide-react";
 import { getStoredToken } from "../services/auth";
 import MultiImageUploader from "./MultiImageUploader";
 
@@ -46,6 +46,8 @@ export default function OwnerPropertyOverviewView({
   const [editImages, setEditImages] = useState<string[]>([]);
   const [editInviteCode, setEditInviteCode] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editTermsText, setEditTermsText] = useState("");
+  const [editTermsFileUrl, setEditTermsFileUrl] = useState("");
 
   const authHeaders = (): Record<string, string> => {
     const token = getStoredToken();
@@ -57,10 +59,18 @@ export default function OwnerPropertyOverviewView({
   const fetchDetail = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/properties/${property.id}`, { headers: authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
+      const [detailRes, termsRes] = await Promise.all([
+        fetch(`/api/properties/${property.id}`, { headers: authHeaders() }),
+        fetch(`/api/properties/${property.id}/terms`, { headers: authHeaders() }),
+      ]);
+      if (detailRes.ok) {
+        const data = await detailRes.json();
         setDetail(data);
+      }
+      if (termsRes.ok) {
+        const termsData = await termsRes.json();
+        setEditTermsText(termsData.terms_text || "");
+        setEditTermsFileUrl(termsData.terms_file_url || "");
       }
     } catch (e) {
       console.error("Failed to fetch property detail:", e);
@@ -76,7 +86,8 @@ export default function OwnerPropertyOverviewView({
   const handleCopyCode = () => {
     const code = detail?.invite_code || property.inviteCode;
     if (code) {
-      navigator.clipboard.writeText(code);
+      const inviteLink = `${window.location.origin}/invite/${code}`;
+      navigator.clipboard.writeText(inviteLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -102,22 +113,32 @@ export default function OwnerPropertyOverviewView({
     if (!editName || !editAddress) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/properties/${property.id}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          name: editName,
-          property_type: editType,
-          description: editDesc,
-          address: editAddress,
-          city: editCity,
-          province: editProvince,
-          postal_code: editPostalCode,
-          image_urls: editImages,
-          invite_code: editInviteCode,
+      const [propRes] = await Promise.all([
+        fetch(`/api/properties/${property.id}`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            name: editName,
+            property_type: editType,
+            description: editDesc,
+            address: editAddress,
+            city: editCity,
+            province: editProvince,
+            postal_code: editPostalCode,
+            image_urls: editImages,
+            invite_code: editInviteCode,
+          }),
         }),
-      });
-      if (res.ok) {
+        fetch(`/api/properties/${property.id}/terms`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            terms_text: editTermsText,
+            terms_file_url: editTermsFileUrl,
+          }),
+        }),
+      ]);
+      if (propRes.ok) {
         setShowSettings(false);
         fetchDetail();
       }
@@ -172,33 +193,42 @@ export default function OwnerPropertyOverviewView({
         </div>
       </div>
 
-      {/* Property Code Card */}
+      {/* Property Invite Link Card */}
       {inviteCode && (
         <div className="bg-slate-900 rounded-2xl border border-slate-700 p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
-                Property Invite Code
-              </p>
-              <p className="font-mono text-2xl font-black text-white tracking-widest">
-                {inviteCode}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Share this code with tenants so they can apply to your property
-              </p>
-            </div>
+          <p className="font-mono text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">
+            Tenant Invite Link
+          </p>
+          <p className="text-xs text-slate-400 mb-3">
+            Share this link with tenants. They'll sign up directly at your property — no approval needed.
+          </p>
+          <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-700 rounded-xl p-3">
+            <span className="font-mono text-sm text-emerald-400 break-all flex-1">
+              {window.location.origin}/invite/{inviteCode}
+            </span>
             <button
               onClick={handleCopyCode}
-              className={`p-3 rounded-xl transition-all cursor-pointer ${
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 copied
                   ? "bg-emerald-500/20 text-emerald-400"
-                  : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
+                  : "bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700"
               }`}
-              title="Copy code"
+              title="Copy invite link"
             >
-              {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Copy
+                </>
+              )}
             </button>
           </div>
+          <p className="font-mono text-[10px] text-slate-500 mt-2">
+            Code: <span className="text-slate-300 font-bold tracking-widest">{inviteCode}</span>
+          </p>
         </div>
       )}
 
@@ -381,6 +411,43 @@ export default function OwnerPropertyOverviewView({
                   onUpload={(urls) => setEditImages(urls)}
                   maxImages={10}
                 />
+              </div>
+
+              {/* Terms & Conditions */}
+              <div className="border-t border-slate-100 pt-4">
+                <h4 className="text-xs font-bold text-slate-700 tracking-wider mb-3 flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5" />
+                  TERMS & CONDITIONS
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Terms Text
+                    </label>
+                    <textarea
+                      value={editTermsText}
+                      onChange={(e) => setEditTermsText(e.target.value)}
+                      placeholder="Enter terms and conditions text that tenants must agree to before signing the contract..."
+                      rows={5}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Terms File URL (PDF or Image)
+                    </label>
+                    <input
+                      type="url"
+                      value={editTermsFileUrl}
+                      onChange={(e) => setEditTermsFileUrl(e.target.value)}
+                      placeholder="https://example.com/terms.pdf"
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Upload a PDF or image and paste the URL here, or use the text field above
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex gap-3 justify-end">

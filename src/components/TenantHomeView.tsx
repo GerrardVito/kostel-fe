@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { TenantProfile, Bill, Announcement, MaintenanceRequest } from "../types";
-import { Building2, CreditCard, Wrench, Megaphone, History, Clock, FileText, ChevronRight, CheckCircle2, AlertTriangle, Plus, LogOut, DollarSign, ShieldCheck, MessageSquare } from "lucide-react";
+import { Building2, CreditCard, Wrench, Megaphone, History, Clock, FileText, ChevronRight, CheckCircle2, AlertTriangle, Plus, LogOut, DollarSign, ShieldCheck, MessageSquare, ArrowRightLeft } from "lucide-react";
 import DepositAppealModal from "./DepositAppealModal";
+import RoomChangeRequestModal from "./RoomChangeRequestModal";
 
 interface DepositDeduction {
   id: number;
@@ -18,6 +19,19 @@ interface DepositInfo {
   deductions_total: number;
   remaining: number;
   deductions: DepositDeduction[];
+}
+
+interface RoomChangeReq {
+  request_id: number;
+  reason: string | null;
+  status: string;
+  created_at: string;
+  rejection_reason: string | null;
+  assignment: {
+    room: { room_number: string; room_type: { type_name: string } };
+  };
+  requested_room: { room_number: string; room_type: { type_name: string } } | null;
+  reviewer: { full_name: string } | null;
 }
 
 interface TenantHomeViewProps {
@@ -47,6 +61,14 @@ export default function TenantHomeView({
 }: TenantHomeViewProps) {
   const [depositInfo, setDepositInfo] = useState<DepositInfo | null>(null);
   const [appealDeduction, setAppealDeduction] = useState<DepositDeduction | null>(null);
+  const [showRoomChangeModal, setShowRoomChangeModal] = useState(false);
+  const [roomChangeRequests, setRoomChangeRequests] = useState<RoomChangeReq[]>([]);
+  const [tenantAssignmentData, setTenantAssignmentData] = useState<{
+    assignmentId: number;
+    propertyId: string;
+    roomType: string;
+    monthlyPrice: number;
+  } | null>(null);
   
   // Extract summary
   const unpaidBills = bills.filter(b => b.status === "UNPAID" || b.status === "OVERDUE");
@@ -68,6 +90,45 @@ export default function TenantHomeView({
       }
     };
     fetchDeposit();
+    fetchAssignmentData();
+  }, [token]);
+
+  const fetchAssignmentData = async () => {
+    try {
+      const res = await fetch("/api/tenants/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.assignment_id) {
+          setTenantAssignmentData({
+            assignmentId: data.assignment_id,
+            propertyId: data.propertyId || "",
+            roomType: data.roomType || "",
+            monthlyPrice: Number(data.monthlyPrice || 0),
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch assignment data:", e);
+    }
+  };
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const res = await fetch("/api/room-change/requests/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setRoomChangeRequests(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch room change requests:", e);
+      }
+    };
+    fetchRequests();
   }, [token]);
 
   return (
@@ -300,6 +361,18 @@ export default function TenantHomeView({
               </span>
             </button>
           )}
+
+          <button
+            onClick={() => setShowRoomChangeModal(true)}
+            className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col items-center gap-3 hover:bg-slate-50 hover:border-slate-350 transition-all cursor-pointer shadow-2xs group"
+          >
+            <div className="w-11 h-11 rounded-xl bg-violet-50 flex items-center justify-center text-violet-600 group-hover:scale-105 transition-transform duration-200">
+              <ArrowRightLeft className="w-5 h-5" />
+            </div>
+            <span className="font-sans text-xs font-semibold text-slate-800">
+              Change Room
+            </span>
+          </button>
         </div>
       </section>
 
@@ -370,6 +443,60 @@ export default function TenantHomeView({
         </section>
       )}
 
+      {/* Room Change Requests */}
+      {roomChangeRequests.length > 0 && (
+        <section>
+          <h3 className="font-display text-xl font-bold text-slate-900 mb-4 tracking-tight">
+            Room Change Requests
+          </h3>
+          <div className="space-y-3">
+            {roomChangeRequests.map((req) => (
+              <div
+                key={req.request_id}
+                className={`p-4 bg-white border rounded-xl shadow-2xs ${
+                  req.status === "pending"
+                    ? "border-amber-200"
+                    : req.status === "approved" || req.status === "completed"
+                    ? "border-emerald-200"
+                    : "border-red-200"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-slate-700">
+                    {req.assignment.room.room_number} →{" "}
+                    {req.requested_room
+                      ? `${req.requested_room.room_number} (${req.requested_room.room_type.type_name})`
+                      : "Any available room"}
+                  </p>
+                  <span
+                    className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded ${
+                      req.status === "pending"
+                        ? "bg-amber-50 text-amber-700"
+                        : req.status === "approved" || req.status === "completed"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-red-50 text-red-700"
+                    }`}
+                  >
+                    {req.status}
+                  </span>
+                </div>
+                {req.reason && (
+                  <p className="text-[11px] text-slate-500 mb-1">{req.reason}</p>
+                )}
+                {req.rejection_reason && (
+                  <p className="text-[11px] text-red-500">
+                    Rejected: {req.rejection_reason}
+                  </p>
+                )}
+                <p className="text-[10px] text-slate-400 font-mono mt-1">
+                  {new Date(req.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Recent Announcements */}
       <section>
         <div className="flex justify-between items-center mb-4">
@@ -410,6 +537,28 @@ export default function TenantHomeView({
           ))}
         </div>
       </section>
+
+      {/* Room Change Request Modal */}
+      {showRoomChangeModal && tenantAssignmentData && (
+        <RoomChangeRequestModal
+          propertyId={tenantAssignmentData.propertyId}
+          assignmentId={tenantAssignmentData.assignmentId}
+          currentRoomNumber={tenantProfile.roomNumber}
+          currentRoomType={tenantAssignmentData.roomType}
+          currentMonthlyPrice={tenantAssignmentData.monthlyPrice}
+          token={token}
+          onClose={() => setShowRoomChangeModal(false)}
+          onSubmitted={() => {
+            setShowRoomChangeModal(false);
+            fetch("/api/room-change/requests/me", {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then((r) => r.json())
+              .then((data) => setRoomChangeRequests(data))
+              .catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 }

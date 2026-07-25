@@ -20,8 +20,12 @@ import {
   Briefcase,
   Pen,
   ShieldAlert,
+  UserPen,
 } from "lucide-react";
 import DepositCutModal from "./DepositCutModal";
+import AddTenantModal from "./AddTenantModal";
+import EditTenantModal from "./EditTenantModal";
+import RoomSwitchModal from "./RoomSwitchModal";
 import { getStoredToken } from "../services/auth";
 
 interface TenantData {
@@ -38,6 +42,7 @@ interface TenantData {
   checkin_date: string;
   checkout_date: string | null;
   status: string;
+  identity_image: string | null;
   signature_image: string | null;
   signed_at: string | null;
 }
@@ -49,6 +54,8 @@ interface RoomData {
   status: string;
   tenantName?: string;
   assignment_id?: number;
+  roomType?: string;
+  monthlyPrice?: number;
 }
 
 interface Transaction {
@@ -60,11 +67,23 @@ interface Transaction {
   category: "income" | "expense" | "deposit";
 }
 
+interface UnpaidBill {
+  id: string;
+  bill_id: number;
+  date: string;
+  type: string;
+  description: string;
+  amount: number;
+  status: string;
+}
+
 interface FinanceData {
   transactions: Transaction[];
+  unpaidBills: UnpaidBill[];
   totalIncome: number;
   totalExpense: number;
   totalDeposit: number;
+  totalUnpaid: number;
   profit: number;
 }
 
@@ -100,28 +119,141 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
   const [selectedStatus, setSelectedStatus] = useState(room.status);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickCheckoutLoading, setQuickCheckoutLoading] = useState(false);
+  const [showQuickCheckoutConfirm, setShowQuickCheckoutConfirm] = useState(false);
+  const [showAddTenantModal, setShowAddTenantModal] = useState(false);
+  const [showEditTenantModal, setShowEditTenantModal] = useState(false);
+  const [showSwitchRoomModal, setShowSwitchRoomModal] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const token = getStoredToken();
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      const parsedPropertyId = propertyId.replace("prop-", "");
+      const roomIdNum = Number(room.id);
+
+      let tenantData: TenantData | null = null;
+
+      // Primary: use /checklist/assignments/property/:id (proven working in dashboard)
+      try {
+        const res = await fetch(`/api/checklist/assignments/property/${parsedPropertyId}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          const list: any[] = Array.isArray(data) ? data : (data?.data ?? []);
+          const match = list.find((a: any) => {
+            const rid = Number(a.room?.room_id ?? a.room?.id ?? a.room_id ?? 0);
+            return rid === roomIdNum;
+          });
+          if (match) {
+            const u = match.user ?? {};
+            tenantData = {
+              assignment_id: match.assignment_id ?? 0,
+              user_id: u.user_id ?? match.tenant_user_id ?? 0,
+              full_name: u.full_name ?? "",
+              email: u.email ?? "",
+              phone: u.phone ?? "",
+              nik: u.nik ?? "",
+              passport_number: u.passport_number ?? "",
+              date_of_birth: u.date_of_birth ?? null,
+              purpose_of_stay: u.purpose_of_stay ?? "",
+              occupation: "",
+              checkin_date: match.checkin_date ?? "",
+              checkout_date: match.checkout_date ?? null,
+              status: match.status ?? "active",
+              identity_image: u.identity_image ?? null,
+              signature_image: u.signature_image ?? null,
+              signed_at: null,
+            };
+          }
+        }
+      } catch {}
+
+      // Fallback: /tenants/property/:id
+      if (!tenantData) {
+        try {
+          const propRes = await fetch(`/api/tenants/property/${parsedPropertyId}`, { headers });
+          if (propRes.ok) {
+            const data = await propRes.json();
+            const list: any[] = Array.isArray(data) ? data : (data?.data ?? []);
+            const match = list.find((t: any) => {
+              const rid = Number(t.room_id ?? t.room?.room_id ?? t.room?.id ?? 0);
+              return rid === roomIdNum;
+            });
+            if (match) {
+              const u = match.user ?? {};
+              tenantData = {
+                assignment_id: match.assignment_id ?? match.assignmentId ?? 0,
+                user_id: match.user_id ?? match.userId ?? u.user_id ?? 0,
+                full_name: match.full_name ?? match.fullName ?? match.name ?? u.full_name ?? "",
+                email: match.email ?? u.email ?? "",
+                phone: match.phone ?? u.phone ?? "",
+                nik: match.nik ?? u.nik ?? "",
+                passport_number: match.passport_number ?? u.passport_number ?? "",
+                date_of_birth: match.date_of_birth ?? null,
+                purpose_of_stay: match.purpose_for_staying ?? match.reason_for_staying ?? "",
+                occupation: match.occupation ?? "",
+                checkin_date: match.checkin_date ?? match.check_in_date ?? "",
+                checkout_date: match.checkout_date ?? null,
+                status: match.status ?? "active",
+                identity_image: match.identity_image ?? u.identity_image ?? null,
+                signature_image: match.signature_image ?? null,
+                signed_at: match.signed_at ?? null,
+              };
+            }
+          }
+        } catch {}
+      }
+
+      // Fallback: /tenants (all)
+      if (!tenantData) {
+        try {
+          const allRes = await fetch(`/api/tenants`, { headers });
+          if (allRes.ok) {
+            const data = await allRes.json();
+            const list: any[] = Array.isArray(data) ? data : (data?.data ?? []);
+            const match = list.find((t: any) => {
+              const rid = Number(t.room_id ?? t.room?.room_id ?? t.room?.id ?? 0);
+              return rid === roomIdNum;
+            });
+            if (match) {
+              const u = match.user ?? {};
+              tenantData = {
+                assignment_id: match.assignment_id ?? match.assignmentId ?? 0,
+                user_id: match.user_id ?? match.userId ?? u.user_id ?? 0,
+                full_name: match.full_name ?? match.fullName ?? match.name ?? u.full_name ?? "",
+                email: match.email ?? u.email ?? "",
+                phone: match.phone ?? u.phone ?? "",
+                nik: match.nik ?? u.nik ?? "",
+                passport_number: match.passport_number ?? u.passport_number ?? "",
+                date_of_birth: match.date_of_birth ?? null,
+                purpose_of_stay: match.purpose_for_staying ?? match.reason_for_staying ?? "",
+                occupation: match.occupation ?? "",
+                checkin_date: match.checkin_date ?? match.check_in_date ?? "",
+                checkout_date: match.checkout_date ?? null,
+                status: match.status ?? "active",
+                identity_image: match.identity_image ?? u.identity_image ?? null,
+                signature_image: match.signature_image ?? null,
+                signed_at: match.signed_at ?? null,
+              };
+            }
+          }
+        } catch {}
+      }
+
+      setTenant(tenantData);
+
+      const financesRes = await fetch(`/api/rooms/${room.id}/finances`, { headers });
+      if (financesRes.ok) {
+        setFinances(await financesRes.json());
+      }
+    } catch (e) {
+      console.error("Failed to fetch room data:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [tenantRes, financesRes] = await Promise.all([
-          fetch(`/api/rooms/${room.id}/tenant`, { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
-          fetch(`/api/rooms/${room.id}/finances`, { headers: { Authorization: `Bearer ${getStoredToken()}` } }),
-        ]);
-        if (tenantRes.ok) {
-          const tenantData = await tenantRes.json();
-          setTenant(tenantData);
-        }
-        if (financesRes.ok) {
-          const financesData = await financesRes.json();
-          setFinances(financesData);
-        }
-      } catch (e) {
-        console.error("Failed to fetch room data:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, [room.id]);
 
@@ -151,6 +283,30 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
 
   const needsConfirmation = selectedStatus !== room.status;
   const isCheckingOut = room.status === "occupied" && selectedStatus === "available";
+
+  const handleQuickCheckout = async () => {
+    if (!tenant?.assignment_id) return;
+    setQuickCheckoutLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/assignments/${tenant.assignment_id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getStoredToken()}` },
+      });
+      if (res.ok) {
+        onStatusChanged();
+        onBack();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to quick checkout");
+      }
+    } catch {
+      setError("Network error during quick checkout");
+    } finally {
+      setQuickCheckoutLoading(false);
+      setShowQuickCheckoutConfirm(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -257,17 +413,71 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
         </div>
       </div>
 
+      {/* Unpaid Bills — separate card, NOT mixed into income */}
+      {finances && finances.unpaidBills && finances.unpaidBills.length > 0 && (
+        <div className="bg-white rounded-2xl border border-rose-200 p-5 shadow-sm">
+          <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-500" />
+            Unpaid Bills
+            <span className="ml-auto font-mono text-xs font-bold text-rose-600">
+              Rp {(finances.totalUnpaid || 0).toLocaleString()} outstanding
+            </span>
+          </h3>
+          <div className="space-y-2">
+            {finances.unpaidBills.map((b) => (
+              <div key={b.id} className="flex items-center justify-between p-3 bg-rose-50 rounded-xl border border-rose-100">
+                <div>
+                  <p className="text-sm font-medium text-slate-900 capitalize">{b.type.replace(/_/g, " ")}</p>
+                  <p className="text-xs text-slate-500">{b.description}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{b.date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-mono font-bold text-rose-600">
+                    Rp {b.amount.toLocaleString()}
+                  </p>
+                  <span className={`font-mono text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                    b.status === "overdue" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"
+                  }`}>
+                    {b.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tenant Information */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <User className="w-4 h-4 text-primary" />
-          Tenant Information
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-bold text-slate-900 flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" />
+            Tenant Information
+          </h3>
+          {tenant && tenant.status?.toLowerCase() !== "revoked" && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSwitchRoomModal(true)}
+                className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                Switch Room
+              </button>
+              <button
+                onClick={() => setShowEditTenantModal(true)}
+                className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <UserPen className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            </div>
+          )}
+        </div>
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
-        ) : tenant && tenant.status === "active" ? (
+        ) : tenant && tenant.status?.toLowerCase() !== "revoked" ? (
           <div className="space-y-4">
             {/* Personal Information */}
             <div className="space-y-3">
@@ -404,10 +614,17 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
             </div>
           </div>
         ) : (
-          <div className="text-center py-8 bg-slate-50 rounded-xl">
-            <UserPlus className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <div className="text-center py-8 bg-slate-50 rounded-xl space-y-3">
+            <UserPlus className="w-8 h-8 text-slate-300 mx-auto" />
             <p className="text-sm text-slate-500">No tenant assigned</p>
-            <p className="text-xs text-slate-400 mt-1">This room is currently empty</p>
+            <p className="text-xs text-slate-400">This room is currently empty</p>
+            <button
+              onClick={() => setShowAddTenantModal(true)}
+              className="px-4 py-2.5 bg-primary hover:bg-primary-container text-white text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center gap-2 mx-auto"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Manually Add Tenant
+            </button>
           </div>
         )}
       </div>
@@ -551,6 +768,106 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
           </button>
         )}
       </div>
+
+      {/* Quick Checkout — DELETE /assignments/:id */}
+      {tenant && tenant.status === "active" && tenant.assignment_id && (
+        <div className="bg-white rounded-2xl border border-rose-200 p-5 shadow-sm">
+          <h3 className="font-display font-bold text-slate-900 mb-2 flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-rose-500" />
+            Quick Checkout
+          </h3>
+          <p className="text-xs text-slate-500 mb-4">
+            Immediately end the tenancy for <span className="font-semibold">{tenant.full_name}</span>,
+            free the room, and reset the deposit to 0. This bypasses the normal checkout flow.
+          </p>
+          {showQuickCheckoutConfirm ? (
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowQuickCheckoutConfirm(false); setError(null); }}
+                disabled={quickCheckoutLoading}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleQuickCheckout}
+                disabled={quickCheckoutLoading}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm rounded-xl cursor-pointer disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {quickCheckoutLoading ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Confirm Quick Checkout"
+                )}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setShowQuickCheckoutConfirm(true); setError(null); }}
+              className="w-full py-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-sm rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-2"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              Quick Checkout Tenant
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Add Tenant Modal */}
+      {showAddTenantModal && (
+        <AddTenantModal
+          token={getStoredToken() || ""}
+          roomId={room.id}
+          roomNumber={room.roomNumber}
+          propertyId={propertyId}
+          propertyName={propertyName}
+          onClose={() => setShowAddTenantModal(false)}
+          onCreated={(newTenant) => {
+            setShowAddTenantModal(false);
+            setTenant({
+              ...newTenant,
+              nik: "",
+              passport_number: "",
+              date_of_birth: null,
+              checkout_date: null,
+              identity_image: null,
+              signature_image: null,
+              signed_at: null,
+            });
+            setSelectedStatus("occupied");
+          }}
+        />
+      )}
+
+      {/* Edit Tenant Modal */}
+      {showEditTenantModal && tenant && (
+        <EditTenantModal
+          tenant={tenant}
+          onClose={() => setShowEditTenantModal(false)}
+          onUpdated={(updated) => {
+            setTenant((prev) => prev ? { ...prev, ...updated } : prev);
+            setShowEditTenantModal(false);
+          }}
+        />
+      )}
+
+      {/* Room Switch Modal */}
+      {showSwitchRoomModal && tenant && (
+        <RoomSwitchModal
+          assignmentId={tenant.assignment_id}
+          currentRoomNumber={room.roomNumber}
+          currentRoomType={room.roomType || ""}
+          currentMonthlyPrice={Number(room.monthlyPrice || 0)}
+          propertyId={propertyId.replace("prop-", "")}
+          token={getStoredToken() || ""}
+          onClose={() => setShowSwitchRoomModal(false)}
+          onSwitched={() => {
+            setShowSwitchRoomModal(false);
+            onStatusChanged();
+            fetchData();
+          }}
+        />
+      )}
     </div>
   );
 }

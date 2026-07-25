@@ -7,6 +7,7 @@ import InspectionsListView from "./InspectionsListView";
 import InspectionScheduleView from "./InspectionScheduleView";
 import ScheduledMaintenanceView from "./ScheduledMaintenanceView";
 import ImageCarousel from "./ImageCarousel";
+import RoomChangeApprovalModal from "./RoomChangeApprovalModal";
 
 interface OwnerDashboardViewProps {
   properties: Property[];
@@ -48,12 +49,32 @@ export default function OwnerDashboardView({
     propertyName: string;
   } | null>(null);
   const [showScheduleInspection, setShowScheduleInspection] = useState(false);
+  const [roomChangeRequests, setRoomChangeRequests] = useState<any[]>([]);
+  const [approvingRequest, setApprovingRequest] = useState<any | null>(null);
 
   useEffect(() => {
     if (token && properties.length > 0) {
       fetchActiveTenants();
+      fetchRoomChangeRequests();
     }
   }, [token, properties]);
+
+  const fetchRoomChangeRequests = async () => {
+    const allRequests: any[] = [];
+    for (const prop of properties) {
+      const propId = prop.id.replace("prop-", "");
+      try {
+        const res = await fetch(`/api/room-change/requests/property/${propId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          allRequests.push(...data);
+        }
+      } catch {}
+    }
+    setRoomChangeRequests(allRequests.filter((r) => r.status === "pending"));
+  };
 
   const fetchActiveTenants = async () => {
     setTenantsLoading(true);
@@ -447,6 +468,88 @@ export default function OwnerDashboardView({
           )}
         </div>
       </section>
+
+      {/* Room Change Requests Section */}
+      {roomChangeRequests.length > 0 && (
+        <section className="bg-white rounded-2xl border border-violet-200 overflow-hidden shadow-2xs">
+          <div className="px-6 py-4.5 border-b border-violet-150 flex justify-between items-center bg-violet-50">
+            <h4 className="font-display font-bold text-violet-900 text-base flex items-center gap-2">
+              <ArrowUpRight className="w-4 h-4 text-violet-600" />
+              Room Change Requests
+              <span className="ml-2 px-2 py-0.5 bg-violet-200 text-violet-700 text-[10px] font-bold rounded-full">
+                {roomChangeRequests.length}
+              </span>
+            </h4>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {roomChangeRequests.map((req) => (
+                <div
+                  key={req.request_id}
+                  className="flex items-center justify-between p-4 bg-violet-50 border border-violet-200 rounded-xl"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {req.tenant?.full_name || "Unknown Tenant"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Room {req.assignment?.room?.room_number || "?"} →{" "}
+                      {req.requested_room
+                        ? `Room ${req.requested_room.room_number} (${req.requested_room.room_type?.type_name})`
+                        : "Any available room"}
+                    </p>
+                    {req.reason && (
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        &quot;{req.reason}&quot;
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setApprovingRequest(req)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg cursor-pointer transition-colors"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await fetch(`/api/room-change/requests/${req.request_id}/reject`, {
+                          method: "PUT",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({ rejectionReason: "Rejected by owner" }),
+                        });
+                        fetchRoomChangeRequests();
+                      }}
+                      className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold rounded-lg cursor-pointer transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Room Change Approval Modal */}
+      {approvingRequest && properties.length > 0 && (
+        <RoomChangeApprovalModal
+          request={approvingRequest}
+          propertyId={properties[0].id.replace("prop-", "")}
+          token={token}
+          onClose={() => setApprovingRequest(null)}
+          onApproved={() => {
+            setApprovingRequest(null);
+            fetchRoomChangeRequests();
+            fetchActiveTenants();
+            onRefreshData();
+          }}
+        />
+      )}
 
       {/* Inspections Section */}
       <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">

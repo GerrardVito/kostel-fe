@@ -12,6 +12,7 @@ import {
   Wallet,
   BedDouble,
   Calendar,
+  Download,
 } from "lucide-react";
 
 interface FinanceViewProps {
@@ -23,6 +24,7 @@ interface FinanceViewProps {
     total_expense: number;
     net_profit: number;
   };
+  onRefresh?: () => void;
 }
 
 interface Transaction {
@@ -68,7 +70,20 @@ function saveManualTransactions(userId: number | undefined, txs: Transaction[]) 
   localStorage.setItem(getStorageKey(userId), JSON.stringify(txs));
 }
 
-export default function FinanceView({ properties, token, userId, financeSummary }: FinanceViewProps) {
+function normalizeApiTransaction(raw: any): Transaction {
+  return {
+    id: raw?.id ?? (raw?.transaction_id != null ? String(raw.transaction_id) : `api-${Math.random().toString(36).slice(2)}`),
+    type: raw?.type === "expense" ? "expense" : "income",
+    amount: Number(raw?.amount ?? 0),
+    description: raw?.description ?? "",
+    date: raw?.date ?? new Date().toISOString(),
+    room_number: raw?.room_number ?? undefined,
+    property_name: raw?.property_name ?? undefined,
+    category: raw?.category ?? undefined,
+  };
+}
+
+export default function FinanceView({ properties, token, userId, financeSummary, onRefresh }: FinanceViewProps) {
   const [roomProfits, setRoomProfits] = useState<RoomProfit[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [apiTransactions, setApiTransactions] = useState<Transaction[]>([]);
@@ -118,7 +133,8 @@ export default function FinanceView({ properties, token, userId, financeSummary 
 
       if (transactionsRes.ok) {
         const data = await transactionsRes.json();
-        setApiTransactions(Array.isArray(data) ? data : []);
+        const normalized = (Array.isArray(data) ? data : []).map(normalizeApiTransaction);
+        setApiTransactions(normalized);
       }
 
       if (roomsRes.ok) {
@@ -228,6 +244,27 @@ export default function FinanceView({ properties, token, userId, financeSummary 
   const totalExpense = isFiltered ? filteredExpense : (financeSummary?.total_expense ?? filteredExpense);
   const netProfit = isFiltered ? filteredProfit : (financeSummary?.net_profit ?? filteredProfit);
 
+  const handleExportCsv = () => {
+    const headers = ["Date", "Type", "Description", "Room", "Category", "Amount"];
+    const rows = filteredTransactions.map((t) => [
+      new Date(t.date).toLocaleDateString("en-US"),
+      t.type,
+      `"${(t.description || "").replace(/"/g, '""')}"`,
+      t.room_number || "",
+      t.category || "",
+      t.type === "expense" ? -t.amount : t.amount,
+    ]);
+
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `finances_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const getIncomeDescription = (roomId: string, notes: string) => {
     const room = rooms.find((r) => r.room_id.toString() === roomId);
     const roomLabel = room ? `Room ${room.room_number}` : "Unknown Room";
@@ -241,6 +278,7 @@ export default function FinanceView({ properties, token, userId, financeSummary 
 
     setSubmitting(true);
     const description = getIncomeDescription(incomeRoomId, incomeNotes);
+    const room = rooms.find((r) => r.room_id.toString() === incomeRoomId);
 
     const newTransaction: Transaction = {
       id: `manual-income-${Date.now()}`,
@@ -248,7 +286,7 @@ export default function FinanceView({ properties, token, userId, financeSummary 
       amount: parseFloat(incomeAmount),
       description,
       date: incomeDate,
-      room_number: rooms.find((r) => r.room_id.toString() === incomeRoomId)?.room_number,
+      room_number: room?.room_number,
       category: "manual_income",
     };
 
@@ -266,13 +304,15 @@ export default function FinanceView({ properties, token, userId, financeSummary 
           description,
           date: incomeDate,
           room_id: parseInt(incomeRoomId),
+          property_id: room?.property_id,
           category: "manual_income",
         }),
       });
 
       if (res.ok) {
         const saved = await res.json();
-        setApiTransactions((prev) => [...prev, saved]);
+        setApiTransactions((prev) => [...prev, normalizeApiTransaction(saved)]);
+        onRefresh?.();
       } else {
         setManualTransactions((prev) => [...prev, newTransaction]);
       }
@@ -320,13 +360,15 @@ export default function FinanceView({ properties, token, userId, financeSummary 
           description: `${expenseDescription}${roomLabel}`,
           date: expenseDate,
           room_id: expenseRoomId ? parseInt(expenseRoomId) : undefined,
+          property_id: room?.property_id,
           category: expenseCategory,
         }),
       });
 
       if (res.ok) {
         const saved = await res.json();
-        setApiTransactions((prev) => [...prev, saved]);
+        setApiTransactions((prev) => [...prev, normalizeApiTransaction(saved)]);
+        onRefresh?.();
       } else {
         setManualTransactions((prev) => [...prev, newTransaction]);
       }
@@ -501,6 +543,15 @@ export default function FinanceView({ properties, token, userId, financeSummary 
           >
             <ArrowDownRight className="w-3.5 h-3.5" />
             Add Expense
+          </button>
+
+          <button
+            onClick={handleExportCsv}
+            disabled={filteredTransactions.length === 0}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-colors disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
           </button>
         </div>
       </div>

@@ -6,6 +6,7 @@ export interface Property {
   roomCount: number;
   occupancy: number;
   inviteCode?: string;
+  category?: 'owned' | 'delegated';
 }
 
 export interface Bill {
@@ -61,7 +62,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: "tenant" | "owner";
+  role: "tenant" | "owner" | "admin";
   hasProperty?: boolean;
   hasPendingApplication?: boolean;
   hasApprovedApplication?: boolean;
@@ -69,6 +70,22 @@ export interface User {
   profile?: {
     profile_image?: string;
     phone?: string;
+  };
+}
+
+export interface AdminMember {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  profile_image?: string;
+  status: "active" | "invited" | "revoked";
+  scope: "all" | "properties";
+  property_ids?: number[];
+  created_at: string;
+  added_by: {
+    id: number;
+    name: string;
   };
 }
 

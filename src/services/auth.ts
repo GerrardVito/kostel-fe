@@ -60,6 +60,26 @@ export async function register(data: {
   }
 }
 
+export async function registerTenant(data: {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  invite_code: string;
+}): Promise<{ token: string; user: User }> {
+  const res = await fetch(`${BASE}/register-tenant`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Registration failed" }));
+    throw new Error(err.message || "Registration failed");
+  }
+  const payload = await res.json();
+  return { token: payload.accessToken, user: payload.user as User };
+}
+
 export async function getMe(token: string): Promise<User> {
   const res = await fetch(`${BASE}/me`, {
     headers: { Authorization: `Bearer ${token}` },

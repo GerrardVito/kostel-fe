@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
+import { normalizeUploadUrl } from "../services/uploads";
 
 interface ImageCarouselProps {
   images: string[];
@@ -21,7 +22,9 @@ export default function ImageCarousel({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  if (!images || images.length === 0) {
+  const normalizedImages = images.map(normalizeUploadUrl);
+
+  if (!normalizedImages || normalizedImages.length === 0) {
     return (
       <div className={`bg-slate-100 flex items-center justify-center ${getAspectRatioClass(aspectRatio)} ${className}`}>
         <span className="text-slate-400 text-sm">No images</span>
@@ -31,12 +34,12 @@ export default function ImageCarousel({
 
   const goToPrevious = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    setCurrentIndex((prev) => (prev === 0 ? normalizedImages.length - 1 : prev - 1));
   };
 
   const goToNext = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    setCurrentIndex((prev) => (prev === normalizedImages.length - 1 ? 0 : prev + 1));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -50,14 +53,14 @@ export default function ImageCarousel({
       {/* Main Image */}
       <div className={`relative overflow-hidden ${getAspectRatioClass(aspectRatio)} ${className}`}>
         <img
-          src={images[currentIndex]}
+          src={normalizedImages[currentIndex]}
           alt={`${alt} ${currentIndex + 1}`}
           className="w-full h-full object-cover transition-transform duration-300"
           referrerPolicy="no-referrer"
         />
 
         {/* Navigation Arrows */}
-        {images.length > 1 && (
+        {normalizedImages.length > 1 && (
           <>
             <button
               onClick={goToPrevious}
@@ -77,9 +80,9 @@ export default function ImageCarousel({
         )}
 
         {/* Image Counter */}
-        {images.length > 1 && (
+        {normalizedImages.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-mono px-2.5 py-1 rounded-full">
-            {currentIndex + 1} / {images.length}
+            {currentIndex + 1} / {normalizedImages.length}
           </div>
         )}
 
@@ -99,9 +102,9 @@ export default function ImageCarousel({
       </div>
 
       {/* Thumbnails */}
-      {showThumbnails && images.length > 1 && (
+      {showThumbnails && normalizedImages.length > 1 && (
         <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
-          {images.map((img, idx) => (
+          {normalizedImages.map((img, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentIndex(idx)}
@@ -145,13 +148,13 @@ export default function ImageCarousel({
 
           <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <img
-              src={images[currentIndex]}
+              src={normalizedImages[currentIndex]}
               alt={`${alt} ${currentIndex + 1}`}
               className="max-w-[90vw] max-h-[90vh] object-contain"
               referrerPolicy="no-referrer"
             />
 
-            {images.length > 1 && (
+            {normalizedImages.length > 1 && (
               <>
                 <button
                   onClick={() => goToPrevious()}
@@ -168,17 +171,17 @@ export default function ImageCarousel({
               </>
             )}
 
-            {images.length > 1 && (
+            {normalizedImages.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm font-mono px-4 py-2 rounded-full">
-                {currentIndex + 1} / {images.length}
+                {currentIndex + 1} / {normalizedImages.length}
               </div>
             )}
           </div>
 
           {/* Thumbnail Strip */}
-          {images.length > 1 && (
+          {normalizedImages.length > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {images.map((img, idx) => (
+              {normalizedImages.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={(e) => {

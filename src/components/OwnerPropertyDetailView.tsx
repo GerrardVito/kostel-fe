@@ -20,12 +20,15 @@ import {
   XCircle,
   AlertTriangle,
   LucideIcon,
+  ShieldCheck,
+  Download,
 } from "lucide-react";
 import ImageCarousel from "./ImageCarousel";
 
 interface OwnerPropertyDetailViewProps {
   property: Property;
   onBack: () => void;
+  onNavigateToAdmin?: () => void;
 }
 
 interface PropertyDetail {
@@ -68,13 +71,34 @@ const FACILITY_ICONS: Record<string, LucideIcon> = {
   default: CheckCircle,
 };
 
-export default function OwnerPropertyDetailView({ property, onBack }: OwnerPropertyDetailViewProps) {
+export default function OwnerPropertyDetailView({ property, onBack, onNavigateToAdmin }: OwnerPropertyDetailViewProps) {
   const [detail, setDetail] = useState<PropertyDetail | null>(null);
   const [roomProfits, setRoomProfits] = useState<RoomProfit[]>([]);
   const [bills, setBills] = useState<BillSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   const parsedId = property.id.replace("prop-", "");
+
+  const handleExportRoomPnl = () => {
+    const headers = ["Room", "Status", "Income", "Expense", "Deposit Held", "Profit"];
+    const rows = roomProfits.map((r) => [
+      r.room_number,
+      r.status,
+      r.total_income,
+      r.total_expense,
+      r.total_deposit ?? 0,
+      r.profit,
+    ]);
+
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `property_pnl_${(property.name || "").replace(/\s+/g, "_") || parsedId}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,6 +187,15 @@ export default function OwnerPropertyDetailView({ property, onBack }: OwnerPrope
             showThumbnails={false}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+          {onNavigateToAdmin && (
+            <button
+              onClick={onNavigateToAdmin}
+              className="absolute top-4 right-4 px-3 py-2 bg-white/90 hover:bg-white text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-all shadow-lg backdrop-blur-sm"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Admin
+            </button>
+          )}
           <div className="absolute bottom-6 left-6 right-6 pointer-events-none">
             <h2 className="font-display text-3xl font-bold text-white mb-1">
               {detail?.property_name || property.name}
@@ -353,6 +386,13 @@ export default function OwnerPropertyDetailView({ property, onBack }: OwnerPrope
           <h3 className="font-display font-bold text-slate-900 mb-4 flex items-center gap-2">
             <BedDouble className="w-4 h-4 text-primary" />
             Room P&amp;L Breakdown
+            <button
+              onClick={handleExportRoomPnl}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              Export CSV
+            </button>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

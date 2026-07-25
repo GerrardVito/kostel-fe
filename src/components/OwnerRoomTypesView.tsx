@@ -15,6 +15,11 @@ import {
   Settings,
   Check,
   Wrench,
+  Upload,
+  FileSpreadsheet,
+  AlertTriangle,
+  Loader2,
+  Download,
 } from "lucide-react";
 import ImageUploader from "./ImageUploader";
 import MultiImageUploader from "./MultiImageUploader";
@@ -106,6 +111,13 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
   const [bulkFloor, setBulkFloor] = useState("");
   const [bulkSaving, setBulkSaving] = useState(false);
 
+  // Import CSV modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importSaving, setImportSaving] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
   // Delete confirmation
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
@@ -170,7 +182,8 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
 
   const fetchRoomProfits = async () => {
     try {
-      const res = await fetch(`/api/rooms/profit/property/${property.id}`, { headers: authHeaders() });
+      const parsedId = property.id.replace("prop-", "");
+      const res = await fetch(`/api/rooms/profit/property/${parsedId}`, { headers: authHeaders() });
       if (res.ok) {
         const data: { room_id: number; total_income: number; total_expense: number; profit: number }[] = await res.json();
         const map: Record<number, { total_income: number; total_expense: number; profit: number }> = {};
@@ -225,6 +238,67 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     }
   };
 
+  const handleImportCsv = async () => {
+    if (!importFile) return;
+    setImportSaving(true);
+    setImportError(null);
+    setImportResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("files", importFile);
+      formData.append("property_id", property.id);
+
+      const token = getStoredToken();
+      const res = await fetch("/api/import/csv", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setImportResult(data.data || data);
+        fetchRoomTypes();
+      } else {
+        setImportError(data.error || data.message || "Import failed");
+      }
+    } catch (e) {
+      setImportError("Network error. Please try again.");
+    } finally {
+      setImportSaving(false);
+    }
+  };
+
+  const resetImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportResult(null);
+    setImportError(null);
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const token = getStoredToken();
+      const res = await fetch("/api/import/template", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "kostel_import_template.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      console.error("Failed to download template:", e);
+    }
+  };
+
   const handleUploadContract = async (roomTypeId: number) => {
     const input = document.createElement("input");
     input.type = "file";
@@ -276,15 +350,14 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     if (!bulkCount || !selectedType) return;
     setBulkSaving(true);
     try {
-      const res = await fetch(`/api/properties/${property.id}/rooms/bulk-generate`, {
+      const res = await fetch(`/api/rooms/bulk-generate`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          roomTypeId: selectedType.id,
+          room_type_id: selectedType.id,
           count: parseInt(bulkCount),
           prefix: bulkPrefix,
-          startingNumber: parseInt(bulkStartNum) || 1,
-          floorNumber: bulkFloor ? parseInt(bulkFloor) : null,
+          start_floor: bulkFloor ? parseInt(bulkFloor) : undefined,
         }),
       });
       if (res.ok) {
@@ -354,15 +427,14 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
     if (!addRoomNumber || !selectedType) return;
     setAddRoomSaving(true);
     try {
-      const res = await fetch(`/api/properties/${property.id}/rooms`, {
+      const res = await fetch(`/api/rooms`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          roomTypeId: selectedType.id,
-          roomNumber: addRoomNumber,
-          monthlyPrice: selectedType.monthlyPrice,
+          room_type_id: selectedType.id,
+          room_number: addRoomNumber,
           status: "available",
-          floorNumber: addRoomFloor ? parseInt(addRoomFloor) : undefined,
+          floor_number: addRoomFloor ? parseInt(addRoomFloor) : undefined,
         }),
       });
       if (res.ok) {
@@ -492,13 +564,22 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
                 {roomTypes.length} type{roomTypes.length !== 1 ? "s" : ""} · {property.name}
               </p>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Type
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="px-4 py-2.5 bg-white border border-slate-200 hover:border-primary/40 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Import CSV
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Type
+              </button>
+            </div>
           </div>
 
           {/* Room Types Grid */}
@@ -1247,6 +1328,123 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
           roomNumber={facilityPopupRoom.roomNumber}
           onClose={() => setFacilityPopupRoom(null)}
         />
+      )}
+
+      {/* Import CSV Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={resetImportModal} />
+          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <h3 className="font-display font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-primary" />
+              Import XLSX
+            </h3>
+
+            {importResult ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <h4 className="font-bold text-emerald-800 text-sm mb-3">Import Complete</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex justify-between"><span className="text-slate-600">Room Types Created:</span><span className="font-bold">{importResult.summary?.room_types_created ?? 0}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Room Types Reused:</span><span className="font-bold">{importResult.summary?.room_types_reused ?? 0}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Rooms Created:</span><span className="font-bold">{importResult.summary?.rooms_created ?? 0}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Rooms Reused:</span><span className="font-bold">{importResult.summary?.rooms_reused ?? 0}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Tenants Created:</span><span className="font-bold">{importResult.summary?.tenants_created ?? 0}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Duplicates Skipped:</span><span className="font-bold">{importResult.summary?.tenants_skipped_duplicate ?? 0}</span></div>
+                    <div className="flex justify-between col-span-2"><span className="text-slate-600">Rooms Without Tenant:</span><span className="font-bold">{importResult.summary?.rooms_without_tenant ?? 0}</span></div>
+                  </div>
+                </div>
+
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl max-h-40 overflow-y-auto">
+                    <h4 className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" /> Warnings
+                    </h4>
+                    <div className="space-y-1.5">
+                      {importResult.errors.map((err: any, i: number) => (
+                        <p key={i} className="text-[11px] text-amber-700">
+                          Row {err.row}: {err.reason} {err.data?.email ? `(${err.data.email})` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={resetImportModal}
+                  className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+                  <p className="font-bold mb-1">Expected XLSX columns:</p>
+                  <code className="text-[10px] break-all">
+                    Room_type, Room_number, Tenant_name, Tenant_Email, Tenant_Phone_Number, Tenant_id_pic, Tenant_signed_contract
+                  </code>
+                  <p className="mt-2 text-slate-500">
+                    If Tenant_name or Tenant_Email is empty, only the room will be created.
+                    Embed ID card and signature images directly in the Tenant_id_pic and Tenant_signed_contract columns.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl cursor-pointer transition-colors border border-emerald-200"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download Template
+                </button>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">XLSX File *</label>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(e) => {
+                      setImportFile(e.target.files?.[0] || null);
+                      setImportResult(null);
+                      setImportError(null);
+                    }}
+                    className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                  />
+                </div>
+
+                {importError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-600">{importError}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetImportModal}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleImportCsv}
+                    disabled={!importFile || importSaving}
+                    className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {importSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5" />
+                    )}
+                    Import
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

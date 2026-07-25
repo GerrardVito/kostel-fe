@@ -35,7 +35,7 @@ export default function DepositCutModal({ assignmentId, tenantName, roomNumber, 
     setSubmitting(true);
     setError("");
     try {
-      const res = await fetch(`/api/assignments/${assignmentId}/deduct-deposit`, {
+      const res = await fetch(`/api/deposit-deductions/assignments/${assignmentId}/deduct-deposit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -28,7 +28,7 @@ export default function DepositAppealModal({ deduction, token, onClose, onSubmit
     setSubmitting(true);
     setError("");
     try {
-      const res = await fetch(`/api/deductions/${deduction.id}/appeal`, {
+      const res = await fetch(`/api/deposit-deductions/deductions/${deduction.id}/appeal`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

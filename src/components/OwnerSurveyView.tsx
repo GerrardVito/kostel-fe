@@ -144,8 +144,8 @@ export default function OwnerSurveyView({
         : "/api/survey-feedbacks";
       const method = editingId ? "PUT" : "POST";
       const body = editingId
-        ? { roomId: selectedRoomId, surveyorName: surveyorName.trim(), comment: comment.trim() }
-        : { propertyId: selectedPropertyId, roomId: selectedRoomId, surveyorName: surveyorName.trim(), comment: comment.trim() };
+        ? { room_id: selectedRoomId, surveyor_name: surveyorName.trim(), comment: comment.trim() }
+        : { property_id: selectedPropertyId, room_id: selectedRoomId, surveyor_name: surveyorName.trim(), comment: comment.trim() };
 
       const res = await fetch(url, {
         method,

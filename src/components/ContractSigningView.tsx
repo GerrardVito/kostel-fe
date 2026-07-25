@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "motion/react";
 import { PenLine, Check, Loader2, ArrowLeft, FileText } from "lucide-react";
+import { getPresignedUrl, uploadToCdn } from "../services/uploads";
 
 interface ContractTemplate {
   propertyName: string;
@@ -114,16 +115,13 @@ export default function ContractSigningView({ propertyId, propertyName, roomId, 
   const uploadSignature = async (): Promise<string | null> => {
     if (!signatureDataUrl) return null;
     const blob = await (await fetch(signatureDataUrl)).blob();
-    const formData = new FormData();
-    formData.append("file", blob, "signature.png");
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return data.url;
+    const file = new File([blob], "signature.png", { type: "image/png" });
+    try {
+      const { presignedUrl, cdnUrl } = await getPresignedUrl("signature.png", "image/png");
+      const ok = await uploadToCdn(presignedUrl, file);
+      if (ok) return cdnUrl;
+    } catch (e) {
+      console.error("Failed to upload signature:", e);
     }
     return null;
   };

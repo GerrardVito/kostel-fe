@@ -11,8 +11,9 @@ import {
   ChevronRight,
   Grid3X3,
   Maximize2,
+  AlertTriangle,
 } from "lucide-react";
-import { getStoredToken } from "../services/auth";
+import { normalizeUploadUrl, saveUploadUrl, removeUploadUrl, getPresignedUrl, uploadToCdn } from "../services/uploads";
 
 interface MultiImageUploaderProps {
   initialUrls?: string[];
@@ -27,11 +28,12 @@ export default function MultiImageUploader({
   maxImages = 20,
   className = "",
 }: MultiImageUploaderProps) {
-  const [images, setImages] = useState<string[]>(initialUrls);
+  const [images, setImages] = useState<string[]>(initialUrls.map(normalizeUploadUrl));
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const updateImages = useCallback(
@@ -47,31 +49,39 @@ export default function MultiImageUploader({
       const fileArray = Array.from(files).filter((f) =>
         f.type.startsWith("image/")
       );
-      if (fileArray.length === 0) return;
+      if (fileArray.length === 0) {
+        setError("Only image files are allowed");
+        return;
+      }
 
       const remaining = maxImages - images.length;
       const toUpload = fileArray.slice(0, remaining);
       if (toUpload.length === 0) return;
 
       setUploading(true);
+      setError(null);
       const newUrls: string[] = [];
+      const errors: string[] = [];
 
       for (const file of toUpload) {
         try {
-          const formData = new FormData();
-          formData.append("file", file);
-          const res = await fetch("/api/upload", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${getStoredToken()}` },
-            body: formData,
-          });
-          if (res.ok) {
-            const data = await res.json();
-            newUrls.push(data.url);
+          const { presignedUrl, cdnUrl } = await getPresignedUrl(file.name, file.type);
+          const ok = await uploadToCdn(presignedUrl, file);
+          if (ok) {
+            const url = normalizeUploadUrl(cdnUrl);
+            saveUploadUrl(url);
+            newUrls.push(url);
+          } else {
+            errors.push(`${file.name}: Upload failed`);
           }
-        } catch (e) {
+        } catch (e: any) {
           console.error("Upload failed:", e);
+          errors.push(`${file.name}: ${e.message || "Network error"}`);
         }
+      }
+
+      if (errors.length > 0) {
+        setError(errors.join("; "));
       }
 
       if (newUrls.length > 0) {
@@ -124,12 +134,14 @@ export default function MultiImageUploader({
   };
 
   const deleteSelected = () => {
+    selectedIndices.forEach((i) => removeUploadUrl(images[i]));
     const newImages = images.filter((_, i) => !selectedIndices.has(i));
     setSelectedIndices(new Set());
     updateImages(newImages);
   };
 
   const deleteSingle = (index: number) => {
+    removeUploadUrl(images[index]);
     const newImages = images.filter((_, i) => i !== index);
     setSelectedIndices(new Set());
     updateImages(newImages);
@@ -209,6 +221,21 @@ export default function MultiImageUploader({
           )}
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-600 flex-1">{error}</p>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-600 cursor-pointer shrink-0"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {/* Drop Zone / Grid */}
       {images.length === 0 ? (

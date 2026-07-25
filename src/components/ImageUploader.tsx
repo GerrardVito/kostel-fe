@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, ImageIcon } from "lucide-react";
-import { getStoredToken } from "../services/auth";
+import { Upload, X, ImageIcon, AlertTriangle } from "lucide-react";
+import { normalizeUploadUrl, saveUploadUrl, removeUploadUrl, getPresignedUrl, uploadToCdn } from "../services/uploads";
 
 interface ImageUploaderProps {
   initialUrl?: string;
@@ -9,32 +9,40 @@ interface ImageUploaderProps {
 }
 
 export default function ImageUploader({ initialUrl, onUpload, className }: ImageUploaderProps) {
-  const [preview, setPreview] = useState<string | null>(initialUrl || null);
+  const [preview, setPreview] = useState<string | null>(initialUrl ? normalizeUploadUrl(initialUrl) : null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const doUpload = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files are allowed");
+      return;
+    }
     setUploading(true);
+    setError(null);
     const blobUrl = URL.createObjectURL(file);
     setPreview(blobUrl);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${getStoredToken()}` },
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const { presignedUrl, cdnUrl } = await getPresignedUrl(file.name, file.type);
+      const ok = await uploadToCdn(presignedUrl, file);
+      if (ok) {
+        const url = normalizeUploadUrl(cdnUrl);
         URL.revokeObjectURL(blobUrl);
-        setPreview(data.url);
-        onUpload(data.url);
+        setPreview(url);
+        saveUploadUrl(url);
+        onUpload(url);
+      } else {
+        setError("Upload failed");
+        URL.revokeObjectURL(blobUrl);
+        setPreview(null);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Upload failed:", e);
+      setError(e.message || "Network error. Please try again.");
+      URL.revokeObjectURL(blobUrl);
+      setPreview(null);
     } finally {
       setUploading(false);
     }
@@ -54,7 +62,9 @@ export default function ImageUploader({ initialUrl, onUpload, className }: Image
 
   const handleRemove = () => {
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+    if (preview) removeUploadUrl(preview);
     setPreview(null);
+    setError(null);
     onUpload("");
   };
 
@@ -67,6 +77,20 @@ export default function ImageUploader({ initialUrl, onUpload, className }: Image
         className="hidden"
         onChange={handleFileChange}
       />
+
+      {error && (
+        <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-600">{error}</p>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="ml-auto text-red-400 hover:text-red-600 cursor-pointer"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {preview ? (
         <div className="relative">
