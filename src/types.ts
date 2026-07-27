@@ -15,7 +15,7 @@ export interface Bill {
   period: string; // e.g. "October 2023"
   amount: number;
   dueDate: string;
-  status: "UNPAID" | "PAID" | "OVERDUE" | "PENDING";
+  status: "UNPAID" | "PAID" | "OVERDUE" | "PENDING" | "LATE" | "FAILED" | "PARTIAL";
   paidDate?: string;
 }
 
@@ -182,4 +182,90 @@ export interface ActivityLog {
   date: string;
   amount?: number;
   status: "Active" | "Unpaid" | "Pending" | "Paid";
+}
+
+// New types for Tenant system
+export interface Tenant {
+  tenant_id: number;
+  user_id: number;
+  identity_image?: string | null;
+  signature_image?: string | null;
+  nik?: string | null;
+  passport_number?: string | null;
+  date_of_birth?: string | null;
+  purpose_of_stay?: string | null;
+  occupation?: string | null;
+  current_assignment_id?: number | null;
+  current_property_id?: number | null;
+  current_room_id?: number | null;
+  contract_status?: string | null;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    user_id: number;
+    full_name: string;
+    email: string;
+    phone?: string;
+    profile_image?: string;
+  };
+  current_assignment?: TenantRoomAssignment | null;
+  current_property?: {
+    property_id: number;
+    property_name: string;
+  } | null;
+  current_room?: {
+    room_id: number;
+    room_number: string;
+  } | null;
+  payment_confirmations?: PaymentConfirmation[];
+}
+
+export interface PaymentConfirmation {
+  confirmation_id: number;
+  tenant_id: number;
+  bill_id: number;
+  amount_claimed: number;
+  payment_proof?: string | null;
+  notes?: string | null;
+  status: "pending" | "confirmed" | "partial" | "rejected";
+  confirmed_amount?: number | null;
+  confirmed_by?: number | null;
+  confirmed_at?: string | null;
+  rejection_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  bill?: Bill;
+  tenant?: Tenant;
+  confirmer?: {
+    user_id: number;
+    full_name: string;
+  } | null;
+}
+
+export interface Notification {
+  notification_id: number;
+  user_id: number;
+  type: string;
+  title: string;
+  message: string;
+  related_id?: number | null;
+  related_type?: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface TenantRoomAssignment {
+  assignment_id: number;
+  tenant_user_id: number;
+  room_id: number;
+  checkin_date: string;
+  checkout_date?: string | null;
+  contract_start?: string | null;
+  contract_end?: string | null;
+  monthly_price_snapshot?: number | null;
+  deposit_snapshot?: number | null;
+  status: string;
+  created_at: string;
 }

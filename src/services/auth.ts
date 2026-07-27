@@ -3,11 +3,11 @@ import { User } from "../types";
 const BASE = "/api/auth";
 
 export function getStoredToken(): string | null {
-  return localStorage.getItem("kostel_token");
+  return sessionStorage.getItem("kostel_token");
 }
 
 export function getStoredUser(): User | null {
-  const raw = localStorage.getItem("kostel_user");
+  const raw = sessionStorage.getItem("kostel_user");
   if (!raw) return null;
   try {
     return JSON.parse(raw) as User;
@@ -17,13 +17,13 @@ export function getStoredUser(): User | null {
 }
 
 export function clearAuth() {
-  localStorage.removeItem("kostel_token");
-  localStorage.removeItem("kostel_user");
+  sessionStorage.removeItem("kostel_token");
+  sessionStorage.removeItem("kostel_user");
 }
 
 export function saveAuth(token: string, user: User) {
-  localStorage.setItem("kostel_token", token);
-  localStorage.setItem("kostel_user", JSON.stringify(user));
+  sessionStorage.setItem("kostel_token", token);
+  sessionStorage.setItem("kostel_user", JSON.stringify(user));
 }
 
 export async function login(
