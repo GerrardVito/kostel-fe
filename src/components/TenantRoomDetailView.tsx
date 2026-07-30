@@ -582,6 +582,37 @@ export default function TenantRoomDetailView({ room, propertyId, propertyName, o
               )}
             </div>
 
+            {/* Tenant ID Card */}
+            <div className="space-y-3">
+              <h4 className="font-mono text-[10px] uppercase tracking-wider font-bold text-slate-400">ID Card (KTP/Passport)</h4>
+              
+              {tenant.identity_image ? (
+                <div className="p-3 bg-slate-50 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="w-4 h-4 text-slate-400" />
+                    <p className="text-xs text-slate-500">Identity document on file</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    <a href={tenant.identity_image} target="_blank" rel="noopener noreferrer">
+                      <img 
+                        src={tenant.identity_image} 
+                        alt="Tenant ID Card" 
+                        className="max-h-48 object-contain mx-auto rounded cursor-pointer hover:opacity-80 transition-opacity"
+                        referrerPolicy="no-referrer"
+                      />
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <p className="text-xs text-amber-700">No ID card on file</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Tenant Signature */}
             <div className="space-y-3">
               <h4 className="font-mono text-[10px] uppercase tracking-wider font-bold text-slate-400">Tenant Signature</h4>
