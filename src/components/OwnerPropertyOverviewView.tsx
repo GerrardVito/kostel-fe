@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Property } from "../types";
-import { ArrowLeft, MapPin, DollarSign, BedDouble, Settings, Copy, Check, X, FileText } from "lucide-react";
+import { ArrowLeft, MapPin, DollarSign, BedDouble, Settings, Copy, Check, FileText } from "lucide-react";
 import { getStoredToken } from "../services/auth";
 import MultiImageUploader from "./MultiImageUploader";
+import Modal from "./ui/Modal";
 
 interface OwnerPropertyOverviewViewProps {
   property: Property;
@@ -285,190 +286,188 @@ export default function OwnerPropertyOverviewView({
 
       {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 animate-scale-up border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <h3 className="font-display font-bold text-lg text-primary flex items-center gap-2">
-                <Settings className="w-5 h-5" /> Property Settings
-              </h3>
+        <Modal
+          size="lg"
+          onClose={() => setShowSettings(false)}
+          title={
+            <span className="flex items-center gap-2 text-primary">
+              <Settings className="w-5 h-5" /> Property Settings
+            </span>
+          }
+          footer={
+            <div className="flex gap-3 justify-end">
               <button
+                type="button"
                 onClick={() => setShowSettings(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer"
+                className="px-4 py-2 text-slate-500 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
               >
-                <X className="w-5 h-5" />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="property-settings-form"
+                disabled={saving}
+                className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>
+          }
+        >
+          <form id="property-settings-form" onSubmit={handleSaveSettings} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                PROPERTY NAME
+              </label>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
+              />
+            </div>
 
-            <form onSubmit={handleSaveSettings} className="mt-4 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                PROPERTY TYPE
+              </label>
+              <input
+                type="text"
+                value={editType}
+                onChange={(e) => setEditType(e.target.value)}
+                placeholder="e.g. Kos, Apartment, Boarding House"
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                DESCRIPTION
+              </label>
+              <textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={3}
+                placeholder="Describe your property..."
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                ADDRESS
+              </label>
+              <input
+                type="text"
+                required
+                value={editAddress}
+                onChange={(e) => setEditAddress(e.target.value)}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  PROPERTY NAME
+                  CITY
                 </label>
                 <input
                   type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
+                  value={editCity}
+                  onChange={(e) => setEditCity(e.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  PROPERTY TYPE
+                  PROVINCE
                 </label>
                 <input
                   type="text"
-                  value={editType}
-                  onChange={(e) => setEditType(e.target.value)}
-                  placeholder="e.g. Kos, Apartment, Boarding House"
+                  value={editProvince}
+                  onChange={(e) => setEditProvince(e.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  DESCRIPTION
-                </label>
-                <textarea
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  rows={3}
-                  placeholder="Describe your property..."
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  ADDRESS
+                  POSTAL CODE
                 </label>
                 <input
                   type="text"
-                  required
-                  value={editAddress}
-                  onChange={(e) => setEditAddress(e.target.value)}
+                  value={editPostalCode}
+                  onChange={(e) => setEditPostalCode(e.target.value)}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                    CITY
-                  </label>
-                  <input
-                    type="text"
-                    value={editCity}
-                    onChange={(e) => setEditCity(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                    PROVINCE
-                  </label>
-                  <input
-                    type="text"
-                    value={editProvince}
-                    onChange={(e) => setEditProvince(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                    POSTAL CODE
-                  </label>
-                  <input
-                    type="text"
-                    value={editPostalCode}
-                    onChange={(e) => setEditPostalCode(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                    INVITE CODE
-                  </label>
-                  <input
-                    type="text"
-                    value={editInviteCode}
-                    onChange={(e) => setEditInviteCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm uppercase tracking-widest"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  PROPERTY IMAGES
+                  INVITE CODE
                 </label>
+                <input
+                  type="text"
+                  value={editInviteCode}
+                  onChange={(e) => setEditInviteCode(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm uppercase tracking-widest"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                PROPERTY IMAGES
+              </label>
+              <div className="max-h-56 overflow-y-auto">
                 <MultiImageUploader
                   initialUrls={editImages}
                   onUpload={(urls) => setEditImages(urls)}
                   maxImages={10}
                 />
               </div>
+            </div>
 
-              {/* Terms & Conditions */}
-              <div className="border-t border-slate-100 pt-4">
-                <h4 className="text-xs font-bold text-slate-700 tracking-wider mb-3 flex items-center gap-2">
-                  <FileText className="w-3.5 h-3.5" />
-                  TERMS & CONDITIONS
-                </h4>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      Terms Text
-                    </label>
-                    <textarea
-                      value={editTermsText}
-                      onChange={(e) => setEditTermsText(e.target.value)}
-                      placeholder="Enter terms and conditions text that tenants must agree to before signing the contract..."
-                      rows={5}
-                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                      Terms File URL (PDF or Image)
-                    </label>
-                    <input
-                      type="url"
-                      value={editTermsFileUrl}
-                      onChange={(e) => setEditTermsFileUrl(e.target.value)}
-                      placeholder="https://example.com/terms.pdf"
-                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Upload a PDF or image and paste the URL here, or use the text field above
-                    </p>
-                  </div>
+            {/* Terms & Conditions */}
+            <div className="border-t border-slate-100 pt-4">
+              <h4 className="text-xs font-bold text-slate-700 tracking-wider mb-3 flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5" />
+                TERMS & CONDITIONS
+              </h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Terms Text
+                  </label>
+                  <textarea
+                    value={editTermsText}
+                    onChange={(e) => setEditTermsText(e.target.value)}
+                    placeholder="Enter terms and conditions text that tenants must agree to before signing the contract..."
+                    rows={5}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Terms File URL (PDF or Image)
+                  </label>
+                  <input
+                    type="url"
+                    value={editTermsFileUrl}
+                    onChange={(e) => setEditTermsFileUrl(e.target.value)}
+                    placeholder="https://example.com/terms.pdf"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Upload a PDF or image and paste the URL here, or use the text field above
+                  </p>
                 </div>
               </div>
-
-              <div className="pt-3 border-t border-slate-100 flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(false)}
-                  className="px-4 py-2 text-slate-500 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors disabled:opacity-50"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

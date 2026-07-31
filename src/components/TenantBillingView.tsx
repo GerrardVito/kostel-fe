@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   XCircle,
 } from "lucide-react";
+import Modal from "./ui/Modal";
 import { getStoredToken } from "../services/auth";
 
 interface TenantBillingViewProps {
@@ -482,91 +483,92 @@ export default function TenantBillingView({
 
       {/* Ledger statement modal */}
       {showLedgerReceipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-up border border-slate-200 relative">
-            <div className="text-center pb-4 border-b border-dashed border-slate-250">
-              <h3 className="font-display font-black text-2xl text-slate-900 tracking-tight leading-none uppercase">
-                KOSTEL LEDGER
-              </h3>
-              <p className="font-mono text-[10px] text-slate-500 mt-2">
-                TRANS-BLOCK LEDGER RECEIPT | STABLE PROTOCOL
-              </p>
-            </div>
-
-            <div className="my-6 space-y-4 font-mono text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">RECEIPT ID:</span>
-                <span className="text-slate-900 font-bold">#KST-9001402</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">TENANT NAME:</span>
-                <span className="text-slate-900 font-bold">Alex Johnston</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">ROOM KEY:</span>
-                <span className="text-slate-900 font-bold">Room 402</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">LEASE TERM:</span>
-                <span className="text-slate-900 font-bold">
-                  Skyline HEIGHTS
-                </span>
-              </div>
-
-              <div className="pt-4 border-t border-dashed border-slate-250 space-y-2">
-                <p className="font-sans font-bold text-xs text-slate-900 mb-1">
-                  Ledger Line Items:
-                </p>
-                {bills.map((b) => (
-                  <div
-                    key={b.id}
-                    className="flex justify-between text-[11px]"
-                  >
-                    <span className="text-slate-500">
-                      · {b.type} ({b.period})
-                    </span>
-                    <span
-                      className={`font-bold ${
-                        b.status === "PAID"
-                          ? "text-slate-700"
-                          : "text-rose-600"
-                      }`}
-                    >
-                      Rp {b.amount.toFixed(2)}{" "}
-                      {b.status === "PAID" ? "[PAID]" : "[DUE]"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="pt-4 border-t border-dashed border-slate-250 flex justify-between text-sm font-bold">
-                <span className="text-slate-800">TOTAL PAID AMOUNT:</span>
-                <span className="text-emerald-600">
-                  Rp{" "}
-                  {bills
-                    .filter((b) => b.status === "PAID")
-                    .reduce((a, b) => a + b.amount, 0)
-                    .toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm font-bold">
-                <span className="text-slate-800 text-rose-650">
-                  OUTSTANDING TO PAY:
-                </span>
-                <span className="text-rose-600">
-                  Rp {totalOutstanding.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
+        <Modal
+          onClose={() => setShowLedgerReceipt(false)}
+          footer={
             <button
               onClick={() => setShowLedgerReceipt(false)}
-              className="w-full mt-6 py-3 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-colors"
+              className="w-full py-3 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-colors"
             >
               Close Ledger View
             </button>
+          }
+        >
+          <div className="text-center pb-4 border-b border-dashed border-slate-250">
+            <h3 className="font-display font-black text-2xl text-slate-900 tracking-tight leading-none uppercase">
+              KOSTEL LEDGER
+            </h3>
+            <p className="font-mono text-[10px] text-slate-500 mt-2">
+              TRANS-BLOCK LEDGER RECEIPT | STABLE PROTOCOL
+            </p>
           </div>
-        </div>
+
+          <div className="mt-6 space-y-4 font-mono text-xs">
+            <div className="flex justify-between">
+              <span className="text-slate-500">RECEIPT ID:</span>
+              <span className="text-slate-900 font-bold">#KST-9001402</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">TENANT NAME:</span>
+              <span className="text-slate-900 font-bold">Alex Johnston</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">ROOM KEY:</span>
+              <span className="text-slate-900 font-bold">Room 402</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">LEASE TERM:</span>
+              <span className="text-slate-900 font-bold">
+                Skyline HEIGHTS
+              </span>
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-250 space-y-2">
+              <p className="font-sans font-bold text-xs text-slate-900 mb-1">
+                Ledger Line Items:
+              </p>
+              {bills.map((b) => (
+                <div
+                  key={b.id}
+                  className="flex justify-between text-[11px]"
+                >
+                  <span className="text-slate-500">
+                    · {b.type} ({b.period})
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      b.status === "PAID"
+                        ? "text-slate-700"
+                        : "text-rose-600"
+                    }`}
+                  >
+                    Rp {b.amount.toFixed(2)}{" "}
+                    {b.status === "PAID" ? "[PAID]" : "[DUE]"}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-250 flex justify-between text-sm font-bold">
+              <span className="text-slate-800">TOTAL PAID AMOUNT:</span>
+              <span className="text-emerald-600">
+                Rp{" "}
+                {bills
+                  .filter((b) => b.status === "PAID")
+                  .reduce((a, b) => a + b.amount, 0)
+                  .toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm font-bold">
+              <span className="text-slate-800 text-rose-600">
+                OUTSTANDING TO PAY:
+              </span>
+              <span className="text-rose-600">
+                Rp {totalOutstanding.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

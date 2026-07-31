@@ -100,3 +100,23 @@ export function openGoogleLogin() {
     `width=${w},height=${h},left=${left},top=${top},popup=1`
   );
 }
+
+export async function joinProperty(
+  inviteCode: string,
+  token: string
+): Promise<{ token: string; user: User }> {
+  const res = await fetch(`${BASE}/join-property`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ invite_code: inviteCode }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Failed to join property" }));
+    throw new Error(err.message || "Failed to join property");
+  }
+  const payload = await res.json();
+  return { token: payload.accessToken, user: payload.user as User };
+}

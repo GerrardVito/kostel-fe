@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
@@ -10,6 +10,8 @@ import {
   ArrowLeft,
   Home,
   AlertCircle,
+  LogIn,
+  Chrome,
 } from "lucide-react";
 import { User as UserType } from "../types";
 import {
@@ -17,6 +19,9 @@ import {
   getStoredUser,
   saveAuth,
   registerTenant,
+  login,
+  joinProperty,
+  openGoogleLogin,
 } from "../services/auth";
 
 interface PropertyInfo {
@@ -35,6 +40,9 @@ export default function TenantInviteSignup() {
   const [loadingProp, setLoadingProp] = useState(true);
   const [propError, setPropError] = useState("");
 
+  // Mode: signup or login
+  const [mode, setMode] = useState<"signup" | "login">("signup");
+
   // Form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,33 +60,18 @@ export default function TenantInviteSignup() {
         return;
       }
 
-      // Already logged in? Route per user role.
+      // Already logged in? Try to join property, then redirect.
       const storedToken = getStoredToken();
       const storedUser = getStoredUser();
       if (storedToken && storedUser) {
-        if (storedUser.role === "owner") {
-          navigate("/app", { replace: true });
-          return;
-        }
-        // Tenant: check if this is their current property
         try {
-          const res = await fetch(`/api/properties/code/${code}`, {
-            headers: { Authorization: `Bearer ${storedToken}` },
-          });
-          if (res.ok) {
-            const prop = await res.json();
-            const memberRes = await fetch(`/api/properties/${prop.property_id}`, {
-              headers: { Authorization: `Bearer ${storedToken}` },
-            });
-            if (memberRes.ok) {
-              // If they're already a member, just go home
-              navigate("/app", { replace: true });
-              return;
-            }
-          }
-        } catch {}
-        // Different property — send them home where they'll see their existing tenancy
-        navigate("/app", { replace: true });
+          const { token: newToken, user: newUser } = await joinProperty(code, storedToken);
+          saveAuth(newToken, newUser);
+          navigate(newUser.role === "owner" ? "/app/admins" : "/app/tenants", { replace: true });
+        } catch {
+          // Already a member or error — just go to app
+          navigate(storedUser.role === "owner" ? "/app/admins" : "/app/tenants", { replace: true });
+        }
         return;
       }
 
@@ -111,7 +104,31 @@ export default function TenantInviteSignup() {
     };
   }, [code, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Listen for Google OAuth callback
+  useEffect(() => {
+    const handler = async (e: MessageEvent) => {
+      if (e.data?.type === "google-auth" && e.data.token && e.data.user) {
+        const { token: oauthToken, user: oauthUser } = e.data;
+        saveAuth(oauthToken, oauthUser);
+        // Now join the property with the invite code
+        if (code) {
+          try {
+            const { token: newToken, user: newUser } = await joinProperty(code, oauthToken);
+            saveAuth(newToken, newUser);
+            navigate(newUser.role === "owner" ? "/app/admins" : "/app/tenants", { replace: true });
+          } catch {
+            navigate(oauthUser.role === "owner" ? "/app/admins" : "/app/tenants", { replace: true });
+          }
+        } else {
+          navigate(oauthUser.role === "owner" ? "/app/admins" : "/app/tenants", { replace: true });
+        }
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [code, navigate]);
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!code) return;
@@ -125,12 +142,44 @@ export default function TenantInviteSignup() {
         invite_code: code,
       });
       saveAuth(token, user);
-      navigate("/app", { replace: true });
+      navigate("/app/tenants", { replace: true });
     } catch (err: any) {
       setError(err.message || "Registration failed");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!code) return;
+    setSubmitting(true);
+    try {
+      const { token, user } = await login(email, password);
+      saveAuth(token, user);
+      // Now join the property with the invite code
+      try {
+        const { token: newToken, user: newUser } = await joinProperty(code, token);
+        saveAuth(newToken, newUser);
+        navigate(newUser.role === "owner" ? "/app/admins" : "/app/tenants", { replace: true });
+      } catch (joinErr: any) {
+        // If already a member, just go to the app
+        navigate(user.role === "owner" ? "/app/admins" : "/app/tenants", { replace: true });
+      }
+    } catch (err: any) {
+      setError(err.message || "Login failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = () => {
+    // Store invite code in sessionStorage so the callback can use it
+    if (code) {
+      sessionStorage.setItem("kostel_pending_invite", code);
+    }
+    openGoogleLogin();
   };
 
   if (loadingProp) {
@@ -179,7 +228,7 @@ export default function TenantInviteSignup() {
             <h1 className="font-display text-3xl font-bold tracking-tight text-primary">KOSTEL</h1>
           </div>
           <p className="text-slate-500 text-xs mt-2 font-medium tracking-wide">
-            Tenant Registration
+            {mode === "signup" ? "Tenant Registration" : "Tenant Login"}
           </p>
         </div>
 
@@ -218,107 +267,210 @@ export default function TenantInviteSignup() {
             </div>
           )}
 
-          <h2 className="font-display font-bold text-lg text-slate-900">
-            Create Tenant Account
-          </h2>
-          <p className="text-slate-500 text-xs mb-4">
-            Sign up to apply as a tenant
-            {property ? ` at ${property.property_name}` : ""}.
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name</label>
-              <div className="relative">
-                <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="John Doe"
-                  maxLength={25}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 6 characters"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phone (optional)</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+62 812 3456 7890"
-                  maxLength={20}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
-                {error}
-              </div>
-            )}
-
+          {/* Mode Toggle */}
+          <div className="flex mb-5 bg-slate-100 rounded-xl p-1">
             <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              onClick={() => { setMode("signup"); setError(""); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                mode === "signup"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
             >
-              {submitting ? (
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Home className="w-4 h-4" />
-                  Join Property
-                </>
-              )}
+              <UserPlus className="w-3.5 h-3.5 inline mr-1.5" />
+              Sign Up
             </button>
-          </form>
-
-          <div className="mt-4 text-center">
             <button
-              onClick={() => navigate("/app", { replace: true })}
-              className="text-xs text-slate-500 hover:text-primary transition-colors font-medium cursor-pointer"
+              onClick={() => { setMode("login"); setError(""); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                mode === "login"
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
             >
-              Already have an account? <span className="underline">Log in</span>
+              <LogIn className="w-3.5 h-3.5 inline mr-1.5" />
+              Log In
             </button>
           </div>
+
+          {/* Google OAuth Button */}
+          <button
+            onClick={handleGoogleLogin}
+            className="w-full py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 mb-4"
+          >
+            <Chrome className="w-4 h-4" />
+            Continue with Google
+          </button>
+
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[10px] text-slate-400 font-medium">OR</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          {/* Signup Form */}
+          {mode === "signup" && (
+            <>
+              <h2 className="font-display font-bold text-lg text-slate-900">
+                Create Tenant Account
+              </h2>
+              <p className="text-slate-500 text-xs mb-4">
+                Sign up to apply as a tenant
+                {property ? ` at ${property.property_name}` : ""}.
+              </p>
+
+              <form onSubmit={handleSignup} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name</label>
+                  <div className="relative">
+                    <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      maxLength={25}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Min. 6 characters"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Phone (optional)</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+62 812 3456 7890"
+                      maxLength={20}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Home className="w-4 h-4" />
+                      Create Account & Join
+                    </>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
+
+          {/* Login Form */}
+          {mode === "login" && (
+            <>
+              <h2 className="font-display font-bold text-lg text-slate-900">
+                Welcome Back
+              </h2>
+              <p className="text-slate-500 text-xs mb-4">
+                Log in to join
+                {property ? ` ${property.property_name}` : ""} as a tenant.
+              </p>
+
+              <form onSubmit={handleLogin} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Your password"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3 bg-primary hover:bg-primary/90 text-white font-bold text-sm rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4" />
+                      Log In & Join Property
+                    </>
+                  )}
+                </button>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>

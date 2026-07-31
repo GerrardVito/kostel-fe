@@ -29,6 +29,7 @@ import RoomFacilityManager from "./RoomFacilityManager";
 import RoomFacilityStatusPopup from "./RoomFacilityStatusPopup";
 import TenantRoomDetailView from "./TenantRoomDetailView";
 import ImageCarousel from "./ImageCarousel";
+import Modal from "./ui/Modal";
 import { getStoredToken } from "../services/auth";
 
 interface RoomData {
@@ -527,7 +528,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
   }
 
   return (
-    <div className="space-y-6 animate-fade-in font-sans">
+    <div className="space-y-6 animate-fade-in font-sans min-h-full flex flex-col">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
         <button onClick={onBack} className="hover:text-primary transition-colors cursor-pointer">
@@ -555,7 +556,7 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
       </div>
 
       {view === "room-types" ? (
-        <>
+        <div className="flex-1 flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -583,8 +584,9 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
           </div>
 
           {/* Room Types Grid */}
-          {roomTypes.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex-1">
+            {roomTypes.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {roomTypes.map((rt, idx) => (
                 <div
                   key={rt.id}
@@ -707,11 +709,12 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
               <p className="font-sans font-semibold text-sm text-slate-500">No room types yet</p>
               <p className="text-xs text-slate-400 mt-1">Add a room type to start managing rooms</p>
             </div>
-          )}
-        </>
+            )}
+          </div>
+        </div>
       ) : view === "rooms" ? (
         /* Level 3: Rooms Grid */
-        <>
+        <div className="flex-1 flex flex-col">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -764,8 +767,9 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
             </div>
           </div>
 
-          {/* Room Type Images Carousel */}
-          {selectedType && selectedType.images && selectedType.images.length > 0 && (
+          {/* Room Type Images Carousel + Rooms Grid */}
+          <div className="flex-1">
+            {selectedType && selectedType.images && selectedType.images.length > 0 && (
             <div className="mb-4">
               <ImageCarousel
                 images={selectedType.images}
@@ -839,8 +843,9 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
               <p className="font-sans font-semibold text-sm text-slate-500">No rooms in this type</p>
               <p className="text-xs text-slate-400 mt-1">Use the API to generate rooms for this room type</p>
             </div>
-          )}
-        </>
+            )}
+          </div>
+        </div>
       ) : (
         /* Level 4: Room Detail View */
         selectedRoomDetail && selectedType && (
@@ -863,462 +868,468 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
 
       {/* Add Room Type Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowAddModal(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="font-display font-bold text-lg text-slate-900 mb-4">Add Room Type</h3>
-            <form onSubmit={handleAddRoomType} className="space-y-3">
+        <Modal
+          size="lg"
+          onClose={() => setShowAddModal(false)}
+          title="Add Room Type"
+          footer={
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-room-type-form"
+                disabled={saving}
+                className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Save"
+                )}
+              </button>
+            </div>
+          }
+        >
+          <form id="add-room-type-form" onSubmit={handleAddRoomType} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Name</label>
+              <input
+                type="text"
+                required
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="e.g. Studio, Deluxe, Suite"
+                maxLength={25}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Name</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Monthly Price</label>
                 <input
-                  type="text"
+                  type="number"
                   required
-                  value={addName}
-                  onChange={(e) => setAddName(e.target.value)}
-                  placeholder="e.g. Studio, Deluxe, Suite"
-                  maxLength={25}
+                  min={0}
+                  value={addPrice}
+                  onChange={(e) => setAddPrice(e.target.value)}
+                  placeholder="Rp"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Monthly Price</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    value={addPrice}
-                    onChange={(e) => setAddPrice(e.target.value)}
-                    placeholder="Rp"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Deposit</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={addDeposit}
-                    onChange={(e) => setAddDeposit(e.target.value)}
-                    placeholder="Rp"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Room Size</label>
-                  <input
-                    type="text"
-                    value={addSize}
-                    onChange={(e) => setAddSize(e.target.value)}
-                    placeholder="e.g. 30m²"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Max Occupants</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={addMaxOcc}
-                    onChange={(e) => setAddMaxOcc(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                <textarea
-                  value={addDesc}
-                  onChange={(e) => setAddDesc(e.target.value)}
-                  placeholder="Optional description"
-                  rows={2}
-                  maxLength={200}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Deposit</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={addDeposit}
+                  onChange={(e) => setAddDeposit(e.target.value)}
+                  placeholder="Rp"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Room Size</label>
+                <input
+                  type="text"
+                  value={addSize}
+                  onChange={(e) => setAddSize(e.target.value)}
+                  placeholder="e.g. 30m²"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Images</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Max Occupants</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={addMaxOcc}
+                  onChange={(e) => setAddMaxOcc(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+              <textarea
+                value={addDesc}
+                onChange={(e) => setAddDesc(e.target.value)}
+                placeholder="Optional description"
+                rows={2}
+                maxLength={200}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Images</label>
+              <div className="max-h-56 overflow-y-auto">
                 <MultiImageUploader
                   initialUrls={addImages}
                   onUpload={(urls) => setAddImages(urls)}
                   maxImages={10}
                 />
               </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {saving ? (
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    "Save"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Bulk Generate Rooms Modal */}
       {showBulkModal && selectedType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowBulkModal(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="font-display font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
+        <Modal
+          onClose={() => setShowBulkModal(false)}
+          title={
+            <span className="flex items-center gap-2">
               <Layers className="w-5 h-5 text-primary" />
               Generate Rooms
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Adding rooms to <span className="font-semibold text-slate-700">{selectedType.name}</span>
-            </p>
-            <form onSubmit={handleBulkGenerate} className="space-y-3">
+            </span>
+          }
+          footer={
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="bulk-generate-form"
+                disabled={bulkSaving}
+                className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {bulkSaving ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  `Generate ${bulkCount || 0} Rooms`
+                )}
+              </button>
+            </div>
+          }
+        >
+          <p className="text-xs text-slate-500 mb-4">
+            Adding rooms to <span className="font-semibold text-slate-700">{selectedType.name}</span>
+          </p>
+          <form id="bulk-generate-form" onSubmit={handleBulkGenerate} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Number of Rooms</label>
+              <input
+                type="number"
+                required
+                min={1}
+                value={bulkCount}
+                onChange={(e) => setBulkCount(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Number of Rooms</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Prefix</label>
+                <input
+                  type="text"
+                  value={bulkPrefix}
+                  onChange={(e) => setBulkPrefix(e.target.value)}
+                  placeholder="e.g. A-"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Starting Number</label>
                 <input
                   type="number"
-                  required
                   min={1}
-                  value={bulkCount}
-                  onChange={(e) => setBulkCount(e.target.value)}
+                  value={bulkStartNum}
+                  onChange={(e) => setBulkStartNum(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Prefix</label>
-                  <input
-                    type="text"
-                    value={bulkPrefix}
-                    onChange={(e) => setBulkPrefix(e.target.value)}
-                    placeholder="e.g. A-"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Starting Number</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={bulkStartNum}
-                    onChange={(e) => setBulkStartNum(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Floor Number (optional)</label>
-                <input
-                  type="number"
-                  value={bulkFloor}
-                  onChange={(e) => setBulkFloor(e.target.value)}
-                  placeholder="e.g. 3"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={bulkSaving}
-                  className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {bulkSaving ? (
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    `Generate ${bulkCount || 0} Rooms`
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Floor Number (optional)</label>
+              <input
+                type="number"
+                value={bulkFloor}
+                onChange={(e) => setBulkFloor(e.target.value)}
+                placeholder="e.g. 3"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-sm">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-500" />
-              </div>
-              <h3 className="font-display font-bold text-lg text-slate-900">Delete Room Type</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                This will permanently delete this room type and all its rooms. This action cannot be undone.
-              </p>
-              <div className="flex gap-3 w-full mt-2">
-                <button
-                  onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteRoomType}
-                  className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
+        <Modal
+          size="sm"
+          onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+          footer={
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteRoomType}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Delete
+              </button>
             </div>
+          }
+        >
+          <div className="flex flex-col items-center text-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+              <Trash2 className="w-6 h-6 text-red-500" />
+            </div>
+            <h3 className="font-display font-bold text-lg text-slate-900">Delete Room Type</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              This will permanently delete this room type and all its rooms. This action cannot be undone.
+            </p>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Room Type Settings Modal */}
       {showSettingsModal && settingsData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => { setShowSettingsModal(false); setSettingsData(null); }}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center gap-2 mb-4">
+        <Modal
+          size="lg"
+          onClose={() => { setShowSettingsModal(false); setSettingsData(null); }}
+          title={
+            <span className="flex items-center gap-2">
               <Settings className="w-5 h-5 text-primary" />
-              <h3 className="font-display font-bold text-lg text-slate-900">Room Type Settings</h3>
+              Room Type Settings
+            </span>
+          }
+          footer={
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowSettingsModal(false); setSettingsData(null); }}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="room-type-settings-form"
+                disabled={editSaving}
+                className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {editSaving ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Save"
+                )}
+              </button>
             </div>
-            <form onSubmit={handleSaveSettings} className="space-y-3">
+          }
+        >
+          <form id="room-type-settings-form" onSubmit={handleSaveSettings} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Name</label>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                maxLength={25}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Name</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Monthly Price</label>
                 <input
-                  type="text"
+                  type="number"
                   required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  maxLength={25}
+                  min={0}
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Monthly Price</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Deposit</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={editDeposit}
-                    onChange={(e) => setEditDeposit(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Room Size</label>
-                  <input
-                    type="text"
-                    value={editSize}
-                    onChange={(e) => setEditSize(e.target.value)}
-                    placeholder="e.g. 30m²"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Max Occupants</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={editMaxOcc}
-                    onChange={(e) => setEditMaxOcc(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
-                <textarea
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  rows={2}
-                  maxLength={200}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Deposit</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editDeposit}
+                  onChange={(e) => setEditDeposit(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Room Size</label>
+                <input
+                  type="text"
+                  value={editSize}
+                  onChange={(e) => setEditSize(e.target.value)}
+                  placeholder="e.g. 30m²"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Images</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Max Occupants</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={editMaxOcc}
+                  onChange={(e) => setEditMaxOcc(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+              <textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={2}
+                maxLength={200}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Images</label>
+              <div className="max-h-56 overflow-y-auto">
                 <MultiImageUploader
                   initialUrls={editImages}
                   onUpload={(urls) => setEditImages(urls)}
                   maxImages={10}
                 />
               </div>
+            </div>
 
-              <div className="pt-4 border-t border-slate-100">
-                {settingsData && (
-                  <RoomFacilityManager roomTypeId={settingsData.id} />
-                )}
-              </div>
+            <div className="pt-4 border-t border-slate-100">
+              {settingsData && (
+                <RoomFacilityManager roomTypeId={settingsData.id} />
+              )}
+            </div>
 
-              <div className="pt-4 border-t border-slate-100">
-                {settingsData && (
-                  <ChecklistItemManager roomTypeId={settingsData.id} />
-                )}
-              </div>
+            <div className="pt-4 border-t border-slate-100">
+              {settingsData && (
+                <ChecklistItemManager roomTypeId={settingsData.id} />
+              )}
+            </div>
 
-              <div className="pt-4 border-t border-slate-100">
-                {settingsData && (
-                  <InspectionItemManager roomTypeId={settingsData.id} title="Inspection Items" />
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowSettingsModal(false); setSettingsData(null); }}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={editSaving}
-                  className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {editSaving ? (
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    "Save"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="pt-4 border-t border-slate-100">
+              {settingsData && (
+                <InspectionItemManager roomTypeId={settingsData.id} title="Inspection Items" />
+              )}
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Add Single Room Modal */}
       {showAddRoomModal && selectedType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowAddRoomModal(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center gap-2 mb-4">
+        <Modal
+          size="md"
+          onClose={() => setShowAddRoomModal(false)}
+          title={
+            <span className="flex items-center gap-2">
               <Plus className="w-5 h-5 text-primary" />
-              <h3 className="font-display font-bold text-lg text-slate-900">Add Room</h3>
+              Add Room
+            </span>
+          }
+          footer={
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAddRoomModal(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-room-form"
+                disabled={addRoomSaving}
+                className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {addRoomSaving ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Add Room"
+                )}
+              </button>
             </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Adding to <span className="font-semibold text-slate-700">{selectedType.name}</span>
-            </p>
-            <form onSubmit={handleAddRoom} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Room Number</label>
-                <input
-                  type="text"
-                  required
-                  value={addRoomNumber}
-                  onChange={(e) => setAddRoomNumber(e.target.value)}
-                  placeholder="e.g. Room 301, A-102"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Floor (optional)</label>
-                <input
-                  type="number"
-                  value={addRoomFloor}
-                  onChange={(e) => setAddRoomFloor(e.target.value)}
-                  placeholder="e.g. 3"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddRoomModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={addRoomSaving}
-                  className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {addRoomSaving ? (
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    "Add Room"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-xs text-slate-500 mb-4">
+            Adding to <span className="font-semibold text-slate-700">{selectedType.name}</span>
+          </p>
+          <form id="add-room-form" onSubmit={handleAddRoom} className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Room Number</label>
+              <input
+                type="text"
+                required
+                value={addRoomNumber}
+                onChange={(e) => setAddRoomNumber(e.target.value)}
+                placeholder="e.g. Room 301, A-102"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Floor (optional)</label>
+              <input
+                type="number"
+                value={addRoomFloor}
+                onChange={(e) => setAddRoomFloor(e.target.value)}
+                placeholder="e.g. 3"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Delete Room Confirmation Modal */}
       {showDeleteRoomModal && deleteRoomTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => { setShowDeleteRoomModal(false); setDeleteRoomTarget(null); }}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-sm">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-500" />
-              </div>
-              <h3 className="font-display font-bold text-lg text-slate-900">Remove Room</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Delete <span className="font-semibold">{deleteRoomTarget.roomNumber}</span>? This cannot be undone.
-              </p>
-              <div className="flex gap-3 w-full mt-2">
-                <button
-                  onClick={() => { setShowDeleteRoomModal(false); setDeleteRoomTarget(null); }}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteRoom}
-                  className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
+        <Modal
+          size="sm"
+          onClose={() => { setShowDeleteRoomModal(false); setDeleteRoomTarget(null); }}
+          footer={
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDeleteRoomModal(false); setDeleteRoomTarget(null); }}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteRoom}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Delete
+              </button>
             </div>
+          }
+        >
+          <div className="flex flex-col items-center text-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+              <Trash2 className="w-6 h-6 text-red-500" />
+            </div>
+            <h3 className="font-display font-bold text-lg text-slate-900">Remove Room</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Delete <span className="font-semibold">{deleteRoomTarget.roomNumber}</span>? This cannot be undone.
+            </p>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Facility Status Popup */}
@@ -1332,119 +1343,123 @@ export default function OwnerRoomTypesView({ property, onBack }: OwnerRoomTypesV
 
       {/* Import CSV Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={resetImportModal} />
-          <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <h3 className="font-display font-bold text-lg text-slate-900 mb-4 flex items-center gap-2">
+        <Modal
+          size="lg"
+          onClose={resetImportModal}
+          title={
+            <span className="flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-primary" />
               Import XLSX
-            </h3>
-
-            {importResult ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <h4 className="font-bold text-emerald-800 text-sm mb-3">Import Complete</h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex justify-between"><span className="text-slate-600">Room Types Created:</span><span className="font-bold">{importResult.summary?.room_types_created ?? 0}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-600">Room Types Reused:</span><span className="font-bold">{importResult.summary?.room_types_reused ?? 0}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-600">Rooms Created:</span><span className="font-bold">{importResult.summary?.rooms_created ?? 0}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-600">Rooms Reused:</span><span className="font-bold">{importResult.summary?.rooms_reused ?? 0}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-600">Tenants Created:</span><span className="font-bold">{importResult.summary?.tenants_created ?? 0}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-600">Duplicates Skipped:</span><span className="font-bold">{importResult.summary?.tenants_skipped_duplicate ?? 0}</span></div>
-                    <div className="flex justify-between col-span-2"><span className="text-slate-600">Rooms Without Tenant:</span><span className="font-bold">{importResult.summary?.rooms_without_tenant ?? 0}</span></div>
-                  </div>
-                </div>
-
-                {importResult.errors && importResult.errors.length > 0 && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl max-h-40 overflow-y-auto">
-                    <h4 className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4" /> Warnings
-                    </h4>
-                    <div className="space-y-1.5">
-                      {importResult.errors.map((err: any, i: number) => (
-                        <p key={i} className="text-[11px] text-amber-700">
-                          Row {err.row}: {err.reason} {err.data?.email ? `(${err.data.email})` : ""}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={resetImportModal}
-                  className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                >
-                  Done
-                </button>
-              </div>
+            </span>
+          }
+          footer={
+            importResult ? (
+              <button
+                onClick={resetImportModal}
+                className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                Done
+              </button>
             ) : (
-              <div className="space-y-4">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
-                  <p className="font-bold mb-1">Expected XLSX columns:</p>
-                  <code className="text-[10px] break-all">
-                    Room_type, Room_number, Tenant_name, Tenant_Email, Tenant_Phone_Number, Tenant_id_pic, Tenant_signed_contract
-                  </code>
-                  <p className="mt-2 text-slate-500">
-                    If Tenant_name or Tenant_Email is empty, only the room will be created.
-                    Embed ID card and signature images directly in the Tenant_id_pic and Tenant_signed_contract columns.
-                  </p>
-                </div>
-
+              <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={handleDownloadTemplate}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl cursor-pointer transition-colors border border-emerald-200"
+                  onClick={resetImportModal}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  Download Template
+                  Cancel
                 </button>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">XLSX File *</label>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => {
-                      setImportFile(e.target.files?.[0] || null);
-                      setImportResult(null);
-                      setImportError(null);
-                    }}
-                    className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
-                  />
-                </div>
-
-                {importError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-red-600">{importError}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={resetImportModal}
-                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleImportCsv}
-                    disabled={!importFile || importSaving}
-                    className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {importSaving ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="w-3.5 h-3.5" />
-                    )}
-                    Import
-                  </button>
+                <button
+                  onClick={handleImportCsv}
+                  disabled={!importFile || importSaving}
+                  className="flex-1 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {importSaving ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="w-3.5 h-3.5" />
+                  )}
+                  Import
+                </button>
+              </div>
+            )
+          }
+        >
+          {importResult ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <h4 className="font-bold text-emerald-800 text-sm mb-3">Import Complete</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex justify-between"><span className="text-slate-600">Room Types Created:</span><span className="font-bold">{importResult.summary?.room_types_created ?? 0}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-600">Room Types Reused:</span><span className="font-bold">{importResult.summary?.room_types_reused ?? 0}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-600">Rooms Created:</span><span className="font-bold">{importResult.summary?.rooms_created ?? 0}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-600">Rooms Reused:</span><span className="font-bold">{importResult.summary?.rooms_reused ?? 0}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-600">Tenants Created:</span><span className="font-bold">{importResult.summary?.tenants_created ?? 0}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-600">Duplicates Skipped:</span><span className="font-bold">{importResult.summary?.tenants_skipped_duplicate ?? 0}</span></div>
+                  <div className="flex justify-between col-span-2"><span className="text-slate-600">Rooms Without Tenant:</span><span className="font-bold">{importResult.summary?.rooms_without_tenant ?? 0}</span></div>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
+
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl max-h-40 overflow-y-auto">
+                  <h4 className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4" /> Warnings
+                  </h4>
+                  <div className="space-y-1.5">
+                    {importResult.errors.map((err: any, i: number) => (
+                      <p key={i} className="text-[11px] text-amber-700">
+                        Row {err.row}: {err.reason} {err.data?.email ? `(${err.data.email})` : ""}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+                <p className="font-bold mb-1">Expected XLSX columns:</p>
+                <code className="text-[10px] break-all">
+                  Room_type, Room_number, Tenant_name, Tenant_Email, Tenant_Phone_Number, Tenant_id_pic, Tenant_signed_contract
+                </code>
+                <p className="mt-2 text-slate-500">
+                  If Tenant_name or Tenant_Email is empty, only the room will be created.
+                  Embed ID card and signature images directly in the Tenant_id_pic and Tenant_signed_contract columns.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl cursor-pointer transition-colors border border-emerald-200"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download Template
+              </button>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">XLSX File *</label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => {
+                    setImportFile(e.target.files?.[0] || null);
+                    setImportResult(null);
+                    setImportError(null);
+                  }}
+                  className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                />
+              </div>
+
+              {importError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-600">{importError}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </Modal>
       )}
     </div>
   );

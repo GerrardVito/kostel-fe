@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { X, CheckCircle, AlertTriangle, Wrench, RefreshCw } from "lucide-react";
+import { CheckCircle, AlertTriangle, Wrench, RefreshCw } from "lucide-react";
+import Modal from "./ui/Modal";
 import { getStoredToken } from "../services/auth";
 
 interface FacilityStatus {
@@ -82,81 +83,77 @@ export default function RoomFacilityStatusPopup({ roomId, roomNumber, onClose }:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl border border-slate-200 p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-display font-bold text-lg text-slate-900">Room {roomNumber}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Facility status</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
+    <Modal
+      size="lg"
+      onClose={onClose}
+      title={
+        <span>
+          Room {roomNumber}
+          <span className="block text-xs font-sans font-normal text-slate-500 mt-0.5">Facility status</span>
+        </span>
+      }
+    >
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
-
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : facilities.length === 0 ? (
-          <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl py-10 text-center">
-            <Wrench className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-xs text-slate-400">No facilities defined for this room type</p>
-            <p className="text-[10px] text-slate-300 mt-1">Add facilities in Room Type Settings first</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {facilities.map((facility) => (
-              <div
-                key={facility.facility_id}
-                className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl"
-              >
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs font-semibold text-slate-800 block truncate">
-                    {facility.facility_name}
+      ) : facilities.length === 0 ? (
+        <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl py-10 text-center">
+          <Wrench className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-xs text-slate-400">No facilities defined for this room type</p>
+          <p className="text-[10px] text-slate-300 mt-1">Add facilities in Room Type Settings first</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {facilities.map((facility) => (
+            <div
+              key={facility.facility_id}
+              className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl"
+            >
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-semibold text-slate-800 block truncate">
+                  {facility.facility_name}
+                </span>
+                {facility.notes && (
+                  <span className="text-[9px] text-slate-400 mt-0.5 block truncate">
+                    {facility.notes}
                   </span>
-                  {facility.notes && (
-                    <span className="text-[9px] text-slate-400 mt-0.5 block truncate">
-                      {facility.notes}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <input
-                    type="text"
-                    placeholder="Notes..."
-                    defaultValue={facility.notes || ""}
-                    maxLength={200}
-                    onBlur={(e) => {
-                      if (e.target.value !== (facility.notes || "")) {
-                        updateStatus(facility.facility_id, facility.status, e.target.value || undefined);
-                      }
-                    }}
-                    className="w-20 px-1.5 py-1 bg-white border border-slate-200 rounded text-[9px] focus:outline-none focus:ring-1 focus:ring-primary/30"
-                  />
-                  <button
-                    onClick={() => {
-                      const nextStatus = cycleStatus(facility.status);
-                      updateStatus(facility.facility_id, nextStatus, facility.notes || undefined);
-                    }}
-                    disabled={savingId === facility.facility_id}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-bold cursor-pointer transition-all disabled:opacity-50 ${getStatusColor(facility.status)}`}
-                  >
-                    {savingId === facility.facility_id ? (
-                      <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      StatusIcon(facility.status)
-                    )}
-                    {getStatusLabel(facility.status)}
-                  </button>
-                </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <input
+                  type="text"
+                  placeholder="Notes..."
+                  defaultValue={facility.notes || ""}
+                  maxLength={200}
+                  onBlur={(e) => {
+                    if (e.target.value !== (facility.notes || "")) {
+                      updateStatus(facility.facility_id, facility.status, e.target.value || undefined);
+                    }
+                  }}
+                  className="w-20 px-1.5 py-1 bg-white border border-slate-200 rounded text-[9px] focus:outline-none focus:ring-1 focus:ring-primary/30"
+                />
+                <button
+                  onClick={() => {
+                    const nextStatus = cycleStatus(facility.status);
+                    updateStatus(facility.facility_id, nextStatus, facility.notes || undefined);
+                  }}
+                  disabled={savingId === facility.facility_id}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[9px] font-bold cursor-pointer transition-all disabled:opacity-50 ${getStatusColor(facility.status)}`}
+                >
+                  {savingId === facility.facility_id ? (
+                    <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    StatusIcon(facility.status)
+                  )}
+                  {getStatusLabel(facility.status)}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }

@@ -2,7 +2,6 @@ import { useState, FormEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   UserPen,
-  X,
   Loader2,
   Mail,
   Phone,
@@ -15,6 +14,7 @@ import {
   FileText,
 } from "lucide-react";
 import ImageUploader from "./ImageUploader";
+import Modal from "./ui/Modal";
 import { getStoredToken } from "../services/auth";
 
 interface TenantData {
@@ -111,29 +111,42 @@ export default function EditTenantModal({ tenant, onClose, onUpdated }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in font-sans">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto relative border border-slate-200"
-      >
-        <div className="p-6 space-y-5">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <h3 className="font-display font-bold text-slate-900 text-lg flex items-center gap-2">
-              <UserPen className="w-5 h-5 text-primary" />
-              Edit Tenant
-            </h3>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <Modal
+      size="lg"
+      onClose={onClose}
+      title={
+        <span className="flex items-center gap-2">
+          <UserPen className="w-5 h-5 text-primary" />
+          Edit Tenant
+        </span>
+      }
+      footer={
+        <div className="flex gap-3 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="edit-tenant-form"
+            disabled={submitting}
+            className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50 transition-all flex items-center gap-2"
+          >
+            {submitting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Check className="w-3.5 h-3.5" />
+            )}
+            Save Changes
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-5">
+        <form id="edit-tenant-form" onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
               <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
@@ -278,61 +291,37 @@ export default function EditTenantModal({ tenant, onClose, onUpdated }: Props) {
               />
             </div>
 
-            {/* Error */}
-            {errorMsg && (
-              <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                <p className="text-xs font-semibold text-rose-700">{errorMsg}</p>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="pt-2 border-t border-slate-100 flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50 transition-all flex items-center gap-2"
-              >
-                {submitting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Check className="w-3.5 h-3.5" />
-                )}
-                Save Changes
-              </button>
+          {/* Error */}
+          {errorMsg && (
+            <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+              <p className="text-xs font-semibold text-rose-700">{errorMsg}</p>
             </div>
-          </form>
-        </div>
-
-        {/* Success overlay */}
-        <AnimatePresence>
-          {success && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-white/95 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-3 z-10 p-6"
-            >
-              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
-                <Check className="w-8 h-8 text-emerald-600" />
-              </div>
-              <p className="font-display text-lg font-bold text-slate-900 text-center">
-                Tenant Updated!
-              </p>
-              <p className="text-xs text-slate-500 text-center leading-relaxed">
-                Changes to <span className="font-bold">{tenant.full_name}</span> have been saved.
-              </p>
-            </motion.div>
           )}
-        </AnimatePresence>
-      </motion.div>
-    </div>
+        </form>
+      </div>
+
+      {/* Success overlay (covers the modal panel) */}
+      <AnimatePresence>
+        {success && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-white/95 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-3 z-10 p-6"
+          >
+            <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
+              <Check className="w-8 h-8 text-emerald-600" />
+            </div>
+            <p className="font-display text-lg font-bold text-slate-900 text-center">
+              Tenant Updated!
+            </p>
+            <p className="text-xs text-slate-500 text-center leading-relaxed">
+              Changes to <span className="font-bold">{tenant.full_name}</span> have been saved.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Modal>
   );
 }

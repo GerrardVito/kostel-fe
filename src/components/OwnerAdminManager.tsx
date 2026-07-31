@@ -1,10 +1,8 @@
 import { useState, useEffect, FormEvent } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   Shield,
   ShieldCheck,
   UserPlus,
-  X,
   Loader2,
   Mail,
   Phone,
@@ -14,6 +12,7 @@ import {
   Info,
   Building2,
 } from "lucide-react";
+import Modal from "./ui/Modal";
 import { AdminMember, Property } from "../types";
 
 interface OwnerAdminManagerProps {
@@ -315,31 +314,42 @@ export default function OwnerAdminManager({
       </div>
 
       {/* Add Admin Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in font-sans">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto relative border border-slate-200"
-            >
-              <div className="p-6 space-y-5">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display font-bold text-slate-900 text-lg flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-primary" />
-                    Add New Admin
-                  </h3>
-                  <button
-                    onClick={handleCloseModal}
-                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
+      {showAddModal && (
+        <Modal
+          onClose={handleCloseModal}
+          title={
+            <span className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              Add New Admin
+            </span>
+          }
+          footer={
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="px-4 py-2.5 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-admin-form"
+                disabled={submitting}
+                className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50 transition-all flex items-center gap-2"
+              >
+                {submitting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <UserPlus className="w-3.5 h-3.5" />
+                )}
+                Grant Admin Access
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-5">
+            <form id="add-admin-form" onSubmit={handleSubmit} className="space-y-4">
                   {/* Name */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
@@ -401,7 +411,7 @@ export default function OwnerAdminManager({
                     <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
                       Access Scope
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setForm({ ...form, scope: "all", property_ids: [] })}
@@ -497,33 +507,10 @@ export default function OwnerAdminManager({
                       <p className="text-xs font-semibold text-rose-700">{errorMsg}</p>
                     </div>
                   )}
-
-                  {/* Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex gap-3 justify-end">
-                    <button
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="px-4 py-2.5 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-50 transition-all flex items-center gap-2"
-                    >
-                      {submitting ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <UserPlus className="w-3.5 h-3.5" />
-                      )}
-                      Grant Admin Access
-                    </button>
-                  </div>
                 </form>
               </div>
 
-              {/* Success overlay */}
+              {/* Success overlay (covers the modal panel) */}
               {successMsg && (
                 <div className="absolute inset-0 bg-white/95 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-3 z-10 p-6">
                   <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -535,81 +522,67 @@ export default function OwnerAdminManager({
                   <p className="text-xs text-slate-500 text-center leading-relaxed">{successMsg}</p>
                 </div>
               )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+        </Modal>
+      )}
 
       {/* Revoke Confirmation Modal */}
-      <AnimatePresence>
-        {revokeTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs font-sans">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 border border-slate-200"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="font-display font-bold text-slate-900 text-base flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-500" />
-                  Revoke Admin Access
-                </h3>
-                <button
-                  onClick={() => setRevokeTarget(null)}
-                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <p className="text-sm text-slate-700">
-                  Are you sure you want to revoke admin access for{" "}
-                  <strong className="text-slate-900">{revokeTarget.name}</strong> (
-                  {revokeTarget.email})?
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  They will immediately lose access to all owner features. This action can be
-                  undone by re-adding them as an admin.
-                </p>
-
-                {errorMsg && (
-                  <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                    <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-                    <p className="text-xs font-semibold text-rose-700">{errorMsg}</p>
-                  </div>
+      {revokeTarget && (
+        <Modal
+          size="sm"
+          onClose={() => setRevokeTarget(null)}
+          title={
+            <span className="flex items-center gap-2 text-base">
+              <AlertTriangle className="w-4 h-4 text-rose-500" />
+              Revoke Admin Access
+            </span>
+          }
+          footer={
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setRevokeTarget(null);
+                  setErrorMsg("");
+                }}
+                disabled={revoking}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold cursor-pointer hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRevoke}
+                disabled={revoking}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              >
+                {revoking ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
                 )}
+                Revoke Access
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-slate-700">
+              Are you sure you want to revoke admin access for{" "}
+              <strong className="text-slate-900">{revokeTarget.name}</strong> (
+              {revokeTarget.email})?
+            </p>
+            <p className="text-[11px] text-slate-500">
+              They will immediately lose access to all owner features. This action can be
+              undone by re-adding them as an admin.
+            </p>
 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      setRevokeTarget(null);
-                      setErrorMsg("");
-                    }}
-                    disabled={revoking}
-                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold cursor-pointer hover:bg-slate-50 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRevoke}
-                    disabled={revoking}
-                    className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                  >
-                    {revoking ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
-                    )}
-                    Revoke Access
-                  </button>
-                </div>
+            {errorMsg && (
+              <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                <p className="text-xs font-semibold text-rose-700">{errorMsg}</p>
               </div>
-            </motion.div>
+            )}
           </div>
-        )}
-      </AnimatePresence>
+        </Modal>
+      )}
     </>
   );
 }

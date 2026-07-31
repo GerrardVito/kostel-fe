@@ -28,6 +28,8 @@ import OwnerSurveyView from "../../components/OwnerSurveyView";
 import FinanceView from "../../components/FinanceView";
 import OwnerAdminManager from "../../components/OwnerAdminManager";
 import ResolveMaintenanceModal from "../../components/ResolveMaintenanceModal";
+import TenantManagementHub from "./TenantManagementHub";
+import Modal from "../../components/ui/Modal";
 
 // Icons
 import {
@@ -440,10 +442,16 @@ export default function AdminApp() {
       </AnimatePresence>
 
       {/* Header */}
-      <Header currentUser={currentUser} onLogout={handleLogout} role="owner" />
+      <Header
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        role="owner"
+        notifications={notifications}
+        unreadCount={notifications.filter((n) => !n.is_read).length}
+      />
 
       {/* Main Content */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28">
+      <main className="flex-grow flex flex-col max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28">
         {/* Dashboard Tab */}
         {activeTab === "home" && (
           <OwnerDashboardView
@@ -602,129 +610,7 @@ export default function AdminApp() {
         )}
 
         {/* Tenants Tab */}
-        {activeTab === "tenants" && (
-          <div className="space-y-6 animate-fade-in font-sans">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="font-display text-2xl font-bold text-slate-900">
-                  Tenant Management
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Manage tenants and review payment confirmations
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <span className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-bold rounded-lg">
-                  {paymentConfirmations.filter((pc) => pc.status === "pending").length} Pending
-                </span>
-              </div>
-            </div>
-
-            {/* Pending Payment Confirmations */}
-            {paymentConfirmations.filter((pc) => pc.status === "pending").length > 0 && (
-              <div className="space-y-4">
-                <h4 className="font-display font-medium text-slate-755 text-sm uppercase tracking-wider">
-                  Pending Payment Confirmations
-                </h4>
-                {paymentConfirmations
-                  .filter((pc) => pc.status === "pending")
-                  .map((pc) => (
-                    <div
-                      key={pc.confirmation_id}
-                      className="bg-white border border-amber-200 rounded-2xl p-5 shadow-2xs"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-sans font-bold text-slate-900">
-                            {pc.tenant?.user?.full_name || "Unknown Tenant"}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Room {pc.tenant?.current_room?.room_number || "N/A"} •{" "}
-                            {pc.tenant?.current_property?.property_name || "N/A"}
-                          </p>
-                        </div>
-                        <span className="font-mono text-sm font-bold text-primary">
-                          Rp {Number(pc.amount_claimed).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-slate-100">
-                        <p className="text-xs text-slate-600">
-                          Bill: {pc.bill?.bill_title || "N/A"}
-                        </p>
-                        {pc.notes && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            Note: {pc.notes}
-                          </p>
-                        )}
-                      </div>
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedConfirmation(pc);
-                            setConfirmAmount(String(pc.amount_claimed));
-                          }}
-                          className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-xl flex-1 cursor-pointer transition-colors"
-                        >
-                          Confirm Payment
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedConfirmation(pc);
-                          }}
-                          className="px-4 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold rounded-xl flex-1 cursor-pointer transition-colors"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            {/* Active Tenants List */}
-            <div className="space-y-4">
-              <h4 className="font-display font-medium text-slate-755 text-sm uppercase tracking-wider">
-                Active Tenants
-              </h4>
-              {tenants.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {tenants.map((tenant) => (
-                    <div
-                      key={tenant.tenant_id}
-                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-display text-sm font-bold text-primary">
-                          {tenant.user?.full_name?.charAt(0) || "?"}
-                        </div>
-                        <div>
-                          <p className="font-sans font-bold text-slate-900 text-sm">
-                            {tenant.user?.full_name || "Unknown"}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Room {tenant.current_room?.room_number || "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
-                        <p className="text-xs text-slate-600">
-                          {tenant.current_property?.property_name || "No property"}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Contract: {tenant.contract_status || "N/A"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-slate-450 p-6 border border-dashed border-slate-200 rounded-2xl text-xs">
-                  No active tenants found.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {activeTab === "tenants" && <TenantManagementHub />}
 
         {/* Profile Tab */}
         {activeTab === "profile" && (
@@ -885,52 +771,15 @@ export default function AdminApp() {
 
       {/* Payment Confirmation Modal */}
       {selectedConfirmation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h3 className="font-display font-bold text-lg text-slate-900 mb-4">
-              Review Payment Confirmation
-            </h3>
-            <div className="space-y-3 mb-4">
-              <p className="text-sm text-slate-600">
-                <strong>Tenant:</strong>{" "}
-                {selectedConfirmation.tenant?.user?.full_name || "Unknown"}
-              </p>
-              <p className="text-sm text-slate-600">
-                <strong>Bill:</strong>{" "}
-                {selectedConfirmation.bill?.bill_title || "N/A"}
-              </p>
-              <p className="text-sm text-slate-600">
-                <strong>Amount Claimed:</strong> Rp{" "}
-                {Number(selectedConfirmation.amount_claimed).toLocaleString()}
-              </p>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-600">
-                  Confirmed Amount
-                </label>
-                <input
-                  type="number"
-                  value={confirmAmount}
-                  onChange={(e) => setConfirmAmount(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"
-                  placeholder="Enter amount"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-600">
-                  Rejection Reason (if rejecting)
-                </label>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"
-                  placeholder="Enter reason"
-                  rows={2}
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
+        <Modal
+          onClose={() => {
+            setSelectedConfirmation(null);
+            setConfirmAmount("");
+            setRejectReason("");
+          }}
+          title="Review Payment Confirmation"
+          footer={
+            <div className="flex gap-2">
               <button
                 onClick={() =>
                   handleConfirmPayment(
@@ -964,8 +813,49 @@ export default function AdminApp() {
                 Cancel
               </button>
             </div>
+          }
+        >
+          <div className="space-y-3 mb-4">
+            <p className="text-sm text-slate-600">
+              <strong>Tenant:</strong>{" "}
+              {selectedConfirmation.tenant?.user?.full_name || "Unknown"}
+            </p>
+            <p className="text-sm text-slate-600">
+              <strong>Bill:</strong>{" "}
+              {selectedConfirmation.bill?.bill_title || "N/A"}
+            </p>
+            <p className="text-sm text-slate-600">
+              <strong>Amount Claimed:</strong> Rp{" "}
+              {Number(selectedConfirmation.amount_claimed).toLocaleString()}
+            </p>
           </div>
-        </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600">
+                Confirmed Amount
+              </label>
+              <input
+                type="number"
+                value={confirmAmount}
+                onChange={(e) => setConfirmAmount(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                placeholder="Enter amount"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600">
+                Rejection Reason (if rejecting)
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                placeholder="Enter reason"
+                rows={2}
+              />
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

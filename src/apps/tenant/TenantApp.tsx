@@ -441,7 +441,13 @@ export default function TenantApp() {
       </AnimatePresence>
 
       {/* Header */}
-      <Header currentUser={currentUser} onLogout={handleLogout} role="tenant" />
+      <Header
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        role="tenant"
+        notifications={notifications}
+        unreadCount={notifications.filter((n) => !n.is_read).length}
+      />
 
       {/* Main Content */}
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28">

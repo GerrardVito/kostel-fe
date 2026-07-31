@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Property } from "../types";
 import { getStoredToken } from "../services/auth";
+import Modal from "./ui/Modal";
 import {
   TrendingUp,
   TrendingDown,
@@ -8,7 +9,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   FileText,
-  X,
   Wallet,
   BedDouble,
   Calendar,
@@ -644,205 +644,195 @@ export default function FinanceView({ properties, token, userId, financeSummary,
 
       {/* Add Income Modal */}
       {showAddIncome && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full animate-scale-up border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-display font-bold text-slate-900 text-sm flex items-center gap-2">
-                <ArrowUpRight className="w-4 h-4 text-emerald-500" />
-                Add Manual Income
-              </h3>
-              <button
-                onClick={() => setShowAddIncome(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+        <Modal
+          onClose={() => setShowAddIncome(false)}
+          title={
+            <span className="flex items-center gap-2">
+              <ArrowUpRight className="w-4 h-4 text-emerald-500" />
+              Add Manual Income
+            </span>
+          }
+          footer={
+            <button
+              type="submit"
+              form="add-income-form"
+              disabled={submitting}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? "Adding..." : "Add Income"}
+            </button>
+          }
+        >
+          <form id="add-income-form" onSubmit={handleAddIncome} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Amount (Rp)
+              </label>
+              <input
+                type="number"
+                value={incomeAmount}
+                onChange={(e) => setIncomeAmount(e.target.value)}
+                placeholder="e.g. 1500000"
+                required
+                min="0"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm"
+              />
             </div>
 
-            <form onSubmit={handleAddIncome} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Amount (Rp)
-                </label>
-                <input
-                  type="number"
-                  value={incomeAmount}
-                  onChange={(e) => setIncomeAmount(e.target.value)}
-                  placeholder="e.g. 1500000"
-                  required
-                  min="0"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Room
-                </label>
-                <select
-                  value={incomeRoomId}
-                  onChange={(e) => setIncomeRoomId(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm cursor-pointer"
-                >
-                  <option value="">Select room...</option>
-                  {rooms.map((r) => (
-                    <option key={r.room_id} value={r.room_id}>
-                      Room {r.room_number}
-                    </option>
-                  ))}
-                </select>
-                {incomeRoomId && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Description will be: "{getIncomeDescription(incomeRoomId, incomeNotes)}"
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  value={incomeDate}
-                  onChange={(e) => setIncomeDate(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Additional Notes (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={incomeNotes}
-                  onChange={(e) => setIncomeNotes(e.target.value)}
-                  placeholder="e.g. Late payment, partial payment..."
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Room
+              </label>
+              <select
+                value={incomeRoomId}
+                onChange={(e) => setIncomeRoomId(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm cursor-pointer"
               >
-                {submitting ? "Adding..." : "Add Income"}
-              </button>
-            </form>
-          </div>
-        </div>
+                <option value="">Select room...</option>
+                {rooms.map((r) => (
+                  <option key={r.room_id} value={r.room_id}>
+                    Room {r.room_number}
+                  </option>
+                ))}
+              </select>
+              {incomeRoomId && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Description will be: "{getIncomeDescription(incomeRoomId, incomeNotes)}"
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Date
+              </label>
+              <input
+                type="date"
+                value={incomeDate}
+                onChange={(e) => setIncomeDate(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Additional Notes (Optional)
+              </label>
+              <input
+                type="text"
+                value={incomeNotes}
+                onChange={(e) => setIncomeNotes(e.target.value)}
+                placeholder="e.g. Late payment, partial payment..."
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden text-sm"
+              />
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Add Expense Modal */}
       {showAddExpense && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full animate-scale-up border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-display font-bold text-slate-900 text-sm flex items-center gap-2">
-                <ArrowDownRight className="w-4 h-4 text-red-500" />
-                Add Expense
-              </h3>
-              <button
-                onClick={() => setShowAddExpense(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+        <Modal
+          onClose={() => setShowAddExpense(false)}
+          title={
+            <span className="flex items-center gap-2">
+              <ArrowDownRight className="w-4 h-4 text-red-500" />
+              Add Expense
+            </span>
+          }
+          footer={
+            <button
+              type="submit"
+              form="add-expense-form"
+              disabled={submitting}
+              className="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? "Adding..." : "Add Expense"}
+            </button>
+          }
+        >
+          <form id="add-expense-form" onSubmit={handleAddExpense} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Amount (Rp)
+              </label>
+              <input
+                type="number"
+                value={expenseAmount}
+                onChange={(e) => setExpenseAmount(e.target.value)}
+                placeholder="e.g. 500000"
+                required
+                min="0"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm"
+              />
             </div>
 
-            <form onSubmit={handleAddExpense} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Amount (Rp)
-                </label>
-                <input
-                  type="number"
-                  value={expenseAmount}
-                  onChange={(e) => setExpenseAmount(e.target.value)}
-                  placeholder="e.g. 500000"
-                  required
-                  min="0"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Description
+              </label>
+              <input
+                type="text"
+                value={expenseDescription}
+                onChange={(e) => setExpenseDescription(e.target.value)}
+                placeholder="e.g. Plumbing repair, painting, cleaning..."
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Description
-                </label>
-                <input
-                  type="text"
-                  value={expenseDescription}
-                  onChange={(e) => setExpenseDescription(e.target.value)}
-                  placeholder="e.g. Plumbing repair, painting, cleaning..."
-                  required
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Category
-                </label>
-                <select
-                  value={expenseCategory}
-                  onChange={(e) => setExpenseCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm cursor-pointer"
-                >
-                  <option value="maintenance">Maintenance</option>
-                  <option value="utilities">Utilities</option>
-                  <option value="renovation">Renovation</option>
-                  <option value="cleaning">Cleaning</option>
-                  <option value="supplies">Supplies</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Room (Optional)
-                </label>
-                <select
-                  value={expenseRoomId}
-                  onChange={(e) => setExpenseRoomId(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm cursor-pointer"
-                >
-                  <option value="">General / Not room-specific</option>
-                  {rooms.map((r) => (
-                    <option key={r.room_id} value={r.room_id}>
-                      Room {r.room_number}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  value={expenseDate}
-                  onChange={(e) => setExpenseDate(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Category
+              </label>
+              <select
+                value={expenseCategory}
+                onChange={(e) => setExpenseCategory(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm cursor-pointer"
               >
-                {submitting ? "Adding..." : "Add Expense"}
-              </button>
-            </form>
-          </div>
-        </div>
+                <option value="maintenance">Maintenance</option>
+                <option value="utilities">Utilities</option>
+                <option value="renovation">Renovation</option>
+                <option value="cleaning">Cleaning</option>
+                <option value="supplies">Supplies</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Room (Optional)
+              </label>
+              <select
+                value={expenseRoomId}
+                onChange={(e) => setExpenseRoomId(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm cursor-pointer"
+              >
+                <option value="">General / Not room-specific</option>
+                {rooms.map((r) => (
+                  <option key={r.room_id} value={r.room_id}>
+                    Room {r.room_number}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                Date
+              </label>
+              <input
+                type="date"
+                value={expenseDate}
+                onChange={(e) => setExpenseDate(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-hidden text-sm"
+              />
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

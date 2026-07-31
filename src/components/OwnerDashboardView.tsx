@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Property, Bill, MaintenanceRequest, ActivityLog, TenantApplication } from "../types";
 import { Search, Building, Users, Home, TrendingUp, AlertTriangle, ArrowUpRight, DollarSign, Clock, CheckCircle, ChevronRight, Send, AlertCircle, RefreshCw, LogOut, ClipboardCheck, Calendar } from "lucide-react";
 import OwnerApplicationsSection from "./OwnerApplicationsSection";
@@ -8,6 +8,7 @@ import InspectionScheduleView from "./InspectionScheduleView";
 import ScheduledMaintenanceView from "./ScheduledMaintenanceView";
 import ImageCarousel from "./ImageCarousel";
 import RoomChangeApprovalModal from "./RoomChangeApprovalModal";
+import Modal from "./ui/Modal";
 
 interface OwnerDashboardViewProps {
   properties: Property[];
@@ -51,6 +52,7 @@ export default function OwnerDashboardView({
   const [showScheduleInspection, setShowScheduleInspection] = useState(false);
   const [roomChangeRequests, setRoomChangeRequests] = useState<any[]>([]);
   const [approvingRequest, setApprovingRequest] = useState<any | null>(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     if (token && properties.length > 0) {
@@ -132,6 +134,34 @@ export default function OwnerDashboardView({
       setIsReminderSent(false);
     }, 3000);
   };
+
+  // Revenue per month computation from paid bills
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    years.add(new Date().getFullYear());
+    safeBills.forEach((b) => {
+      if (b.status === "PAID") {
+        const d = b.paidDate ? new Date(b.paidDate) : new Date(b.period);
+        if (!isNaN(d.getTime())) years.add(d.getFullYear());
+      }
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [safeBills]);
+
+  const revenueByMonth = useMemo(() => {
+    const monthly = new Array(12).fill(0);
+    safeBills.forEach((bill) => {
+      if (bill.status !== "PAID") return;
+      const d = bill.paidDate ? new Date(bill.paidDate) : new Date(bill.period);
+      if (isNaN(d.getTime()) || d.getFullYear() !== selectedYear) return;
+      monthly[d.getMonth()] += bill.amount;
+    });
+    return monthly;
+  }, [safeBills, selectedYear]);
+
+  const maxRevenue = Math.max(...revenueByMonth, 1);
 
   // Maintenance statistics
   const pendingMaint = safeMaintenanceRequests.filter(m => m.status === "PENDING" || m.status === "PROCESSING").length;
@@ -298,31 +328,57 @@ export default function OwnerDashboardView({
               </div>
             </div>
 
-            {/* Custom SVG Animated Revenue Bar Chart */}
-            <div className="w-full md:w-1/2 h-44 bg-slate-50 border border-slate-150 rounded-xl flex items-end px-5 py-3 gap-3 relative justify-between">
-              {/* Vertical grids */}
-              <div className="absolute inset-0 p-3 flex flex-col justify-between pointer-events-none opacity-40">
-                <div className="border-b border-slate-200 w-full"></div>
-                <div className="border-b border-slate-200 w-full"></div>
-                <div className="border-b border-slate-200 w-full"></div>
+            {/* Revenue Per Month Bar Chart */}
+            <div className="w-full md:w-1/2 bg-slate-50 border border-slate-150 rounded-xl flex flex-col px-5 py-3 relative">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-sans text-xs font-bold text-slate-700">Revenue Per Month</span>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-0.5 cursor-pointer focus:outline-none"
+                >
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
               </div>
 
-              {[40, 60, 45, 85, 100].map((height, i) => (
-                <div key={i} className="flex-1 flex flex-col justify-end items-center h-full group z-10 relative">
-                  {/* Tooltip on Hover */}
-                  <span className="absolute -top-7 bg-slate-900 text-white font-mono text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    Rp {((height / 100) * 50).toFixed(1)}M
-                  </span>
-                  
-                  <div
-                    style={{ height: `${height}%` }}
-                    className="w-full bg-primary/20 rounded-t-md hover:bg-primary transition-all duration-300 shadow-2xs cursor-pointer border-t border-primary/10"
-                  ></div>
-                  <span className="font-mono text-[9px] text-slate-400 mt-2">
-                    {["May", "Jun", "Jul", "Aug", "Sept"][i]}
-                  </span>
+              <div className="flex items-end h-36 px-1 gap-1.5 relative justify-between">
+                {/* Horizontal grid lines */}
+                <div className="absolute inset-0 px-1 flex flex-col justify-between pointer-events-none opacity-30">
+                  <div className="border-b border-slate-200 w-full"></div>
+                  <div className="border-b border-slate-200 w-full"></div>
+                  <div className="border-b border-slate-200 w-full"></div>
+                  <div className="border-b border-slate-200 w-full"></div>
                 </div>
-              ))}
+
+                {revenueByMonth.map((amount, i) => {
+                  const pct = maxRevenue > 0 ? (amount / maxRevenue) * 100 : 0;
+                  const isCurrentMonth = i === new Date().getMonth() && selectedYear === new Date().getFullYear();
+                  return (
+                    <div key={i} className="flex-1 flex flex-col justify-end items-center h-full group z-10 relative">
+                      {/* Tooltip on hover */}
+                      <span className="absolute -top-7 bg-slate-900 text-white font-mono text-[9px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Rp {(amount / 1_000_000).toFixed(1)}M
+                      </span>
+
+                      <div
+                        style={{ height: `${Math.max(pct, 2)}%` }}
+                        className={`w-full rounded-t-md transition-all duration-300 shadow-2xs cursor-pointer border-t ${
+                          amount === 0
+                            ? "bg-slate-200 border-slate-300"
+                            : isCurrentMonth
+                            ? "bg-primary/30 border-primary/20 hover:bg-primary"
+                            : "bg-primary/20 border-primary/10 hover:bg-primary"
+                        }`}
+                      ></div>
+                      <span className={`font-mono text-[9px] mt-2 ${isCurrentMonth ? "text-primary font-bold" : "text-slate-400"}`}>
+                        {MONTHS[i]}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -579,17 +635,13 @@ export default function OwnerDashboardView({
 
       {/* Schedule Inspection Modal */}
       {showScheduleInspection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto py-8">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full animate-scale-up border border-slate-200 overflow-hidden">
-            <div className="max-h-[90vh] overflow-y-auto">
-              <InspectionScheduleView
-                token={token}
-                onCreated={() => setShowScheduleInspection(false)}
-                onBack={() => setShowScheduleInspection(false)}
-              />
-            </div>
-          </div>
-        </div>
+        <Modal size="lg" bodyClassName="p-0" onClose={() => setShowScheduleInspection(false)}>
+          <InspectionScheduleView
+            token={token}
+            onCreated={() => setShowScheduleInspection(false)}
+            onBack={() => setShowScheduleInspection(false)}
+          />
+        </Modal>
       )}
 
       {/* Recent Tenant logs and metrics */}
@@ -644,129 +696,111 @@ export default function OwnerDashboardView({
 
       {/* Check-Out Checklist Modal */}
       {checkoutData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto py-8">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full animate-scale-up border border-slate-200 overflow-hidden">
-            <div className="max-h-[90vh] overflow-y-auto">
-              <div className="p-3 border-b border-slate-100 flex justify-end">
-                <button
-                  onClick={() => setCheckoutData(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <ChecklistSessionView
-                userId={0}
-                token={token}
-                assignmentId={checkoutData.assignmentId}
-                sessionType="checkout"
-                propertyName={checkoutData.propertyName}
-                roomNumber={checkoutData.roomNumber}
-                onCompleted={() => {
-                  setCheckoutData(null);
-                  fetchActiveTenants();
-                  onRefreshData();
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <Modal size="lg" bodyClassName="p-0" onClose={() => setCheckoutData(null)}>
+          <ChecklistSessionView
+            userId={0}
+            token={token}
+            assignmentId={checkoutData.assignmentId}
+            sessionType="checkout"
+            propertyName={checkoutData.propertyName}
+            roomNumber={checkoutData.roomNumber}
+            onCompleted={() => {
+              setCheckoutData(null);
+              fetchActiveTenants();
+              onRefreshData();
+            }}
+          />
+        </Modal>
       )}
 
       {/* Maintenance Request Resolver Drawer / Dialogue */}
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-scale-up border border-slate-200">
-            <div className="pb-3 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-display font-bold text-slate-900 text-sm flex items-center gap-1.5 uppercase tracking-wider">
-                <AlertCircle className="w-4 h-4 text-amber-500" /> TICKET RESOLVER
-              </h3>
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold p-1 cursor-pointer"
-              >
-                Close
-              </button>
+        <Modal
+          size="sm"
+          onClose={() => setSelectedRequest(null)}
+          title={
+            <span className="flex items-center gap-1.5 uppercase tracking-wider text-sm">
+              <AlertCircle className="w-4 h-4 text-amber-500" /> TICKET RESOLVER
+            </span>
+          }
+        >
+          <div className="space-y-4">
+            {/* Maintenance Images Carousel */}
+            {selectedRequest.images && selectedRequest.images.length > 0 ? (
+              <ImageCarousel
+                images={selectedRequest.images}
+                alt={selectedRequest.title}
+                aspectRatio="video"
+                showThumbnails={selectedRequest.images.length > 1}
+              />
+            ) : selectedRequest.image ? (
+              <img
+                src={selectedRequest.image}
+                alt={selectedRequest.title}
+                className="w-full h-36 object-cover rounded-xl"
+              />
+            ) : null}
+
+            <div>
+              <h4 className="font-sans font-bold text-slate-950 text-sm leading-snug">
+                {selectedRequest.title}
+              </h4>
+              <p className="font-sans text-xs text-slate-500 mt-1">
+                {selectedRequest.description}
+              </p>
             </div>
 
-            <div className="mt-4 space-y-4">
-              {/* Maintenance Images Carousel */}
-              {selectedRequest.images && selectedRequest.images.length > 0 ? (
-                <ImageCarousel
-                  images={selectedRequest.images}
-                  alt={selectedRequest.title}
-                  aspectRatio="video"
-                  showThumbnails={selectedRequest.images.length > 1}
-                />
-              ) : selectedRequest.image ? (
-                <img
-                  src={selectedRequest.image}
-                  alt={selectedRequest.title}
-                  className="w-full h-36 object-cover rounded-xl"
-                />
-              ) : null}
+            <div className="flex gap-2 font-mono text-[11px] justify-between text-slate-500 py-1 bg-slate-50 px-3 rounded-lg border border-slate-150">
+              <span>Room: {typeof selectedRequest.room === "object" && selectedRequest.room !== null ? (selectedRequest.room as any).room_number : selectedRequest.room}</span>
+              <span>Logged: {selectedRequest.date}</span>
+            </div>
 
-              <div>
-                <h4 className="font-sans font-bold text-slate-950 text-sm leading-snug">
-                  {selectedRequest.title}
-                </h4>
-                <p className="font-sans text-xs text-slate-500 mt-1">
-                  {selectedRequest.description}
-                </p>
-              </div>
-
-              <div className="flex gap-2 font-mono text-[11px] justify-between text-slate-500 py-1 bg-slate-50 px-3 rounded-lg border border-slate-150">
-                <span>Room: {typeof selectedRequest.room === "object" && selectedRequest.room !== null ? (selectedRequest.room as any).room_number : selectedRequest.room}</span>
-                <span>Logged: {selectedRequest.date}</span>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 space-y-2">
-                <p className="font-sans text-xs font-bold text-slate-700 uppercase">Change Status State:</p>
-                <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
-                  <button
-                    onClick={() => {
-                      onResolveMaintenance(selectedRequest.id, "PENDING");
-                      setSelectedRequest(null);
-                    }}
-                    className={`py-2 px-1 text-center rounded-lg border cursor-pointer transition-colors ${
-                      selectedRequest.status === "PENDING"
-                        ? "bg-amber-50 border-amber-300 text-amber-600"
-                        : "border-slate-200 text-slate-600"
-                    }`}
-                  >
-                    Pending
-                  </button>
-                  <button
-                    onClick={() => {
-                      onResolveMaintenance(selectedRequest.id, "PROCESSING");
-                      setSelectedRequest(null);
-                    }}
-                    className={`py-2 px-1 text-center rounded-lg border cursor-pointer transition-colors ${
-                      selectedRequest.status === "PROCESSING"
-                        ? "bg-blue-50 border-blue-300 text-blue-600"
-                        : "border-slate-200 text-slate-600"
-                    }`}
-                  >
-                    Processing
-                  </button>
-                  <button
-                    onClick={() => {
-                      onResolveMaintenance(selectedRequest.id, "COMPLETED");
-                      setSelectedRequest(null);
-                    }}
-                    className={`py-2 px-1 text-center rounded-lg border cursor-pointer transition-colors ${
-                      selectedRequest.status === "COMPLETED"
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-600"
-                        : "border-slate-200 text-slate-600"
-                    }`}
-                  >
-                    Resolved
-                  </button>
-                </div>
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <p className="font-sans text-xs font-bold text-slate-700 uppercase">Change Status State:</p>
+              <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
+                <button
+                  onClick={() => {
+                    onResolveMaintenance(selectedRequest.id, "PENDING");
+                    setSelectedRequest(null);
+                  }}
+                  className={`py-2 px-1 text-center rounded-lg border cursor-pointer transition-colors ${
+                    selectedRequest.status === "PENDING"
+                      ? "bg-amber-50 border-amber-300 text-amber-600"
+                      : "border-slate-200 text-slate-600"
+                  }`}
+                >
+                  Pending
+                </button>
+                <button
+                  onClick={() => {
+                    onResolveMaintenance(selectedRequest.id, "PROCESSING");
+                    setSelectedRequest(null);
+                  }}
+                  className={`py-2 px-1 text-center rounded-lg border cursor-pointer transition-colors ${
+                    selectedRequest.status === "PROCESSING"
+                      ? "bg-blue-50 border-blue-300 text-blue-600"
+                      : "border-slate-200 text-slate-600"
+                  }`}
+                >
+                  Processing
+                </button>
+                <button
+                  onClick={() => {
+                    onResolveMaintenance(selectedRequest.id, "COMPLETED");
+                    setSelectedRequest(null);
+                  }}
+                  className={`py-2 px-1 text-center rounded-lg border cursor-pointer transition-colors ${
+                    selectedRequest.status === "COMPLETED"
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-600"
+                      : "border-slate-200 text-slate-600"
+                  }`}
+                >
+                  Resolved
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

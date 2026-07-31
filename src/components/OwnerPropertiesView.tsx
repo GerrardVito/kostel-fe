@@ -1,8 +1,9 @@
 import React, { useState, FormEvent } from "react";
 import { Property } from "../types";
-import { Building2, MapPin, BedDouble, ArrowRight, Plus, X, Search, Landmark, Trash2, ShieldCheck } from "lucide-react";
+import { Building2, MapPin, BedDouble, ArrowRight, Plus, Search, Landmark, Trash2, ShieldCheck } from "lucide-react";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import MultiImageUploader from "./MultiImageUploader";
+import Modal from "./ui/Modal";
 
 interface OwnerPropertiesViewProps {
   properties: Property[];
@@ -252,93 +253,90 @@ export default function OwnerPropertiesView({ properties, onAddProperty, onDelet
 
       {/* Add Property Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-scale-up border border-slate-200">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <h3 className="font-display font-bold text-lg text-primary flex items-center gap-2">
-                <Landmark className="w-5 h-5" /> Add Logged Asset
-              </h3>
+        <Modal
+          onClose={() => setShowAddModal(false)}
+          title={
+            <span className="flex items-center gap-2 text-primary">
+              <Landmark className="w-5 h-5" /> Add Logged Asset
+            </span>
+          }
+          footer={
+            <div className="flex gap-3 justify-end">
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer"
+                className="px-4 py-2 text-slate-500 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
               >
-                <X className="w-5 h-5" />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-property-form"
+                className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
+              >
+                Submit Property
               </button>
             </div>
+          }
+        >
+          <form id="add-property-form" onSubmit={handleFormSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                PROPERTY NAME
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Skyline Heights Tower C"
+                maxLength={25}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
+              />
+            </div>
 
-            <form onSubmit={handleFormSubmit} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  PROPERTY NAME
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Skyline Heights Tower C"
-                  maxLength={25}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                ADDRESS LOCATION
+              </label>
+              <input
+                type="text"
+                required
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. Jl. Melati No. 45, Bandung"
+                maxLength={200}
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  ADDRESS LOCATION
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="e.g. Jl. Melati No. 45, Bandung"
-                  maxLength={200}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                INVITE CODE
+              </label>
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                placeholder="e.g. SKYLINE"
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm uppercase tracking-widest"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  INVITE CODE
-                </label>
-                <input
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                  placeholder="e.g. SKYLINE"
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary focus:outline-hidden text-sm uppercase tracking-widest"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
-                  PROPERTY IMAGES
-                </label>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 tracking-wider mb-1.5">
+                PROPERTY IMAGES
+              </label>
+              <div className="max-h-56 overflow-y-auto">
                 <MultiImageUploader
                   initialUrls={images}
                   onUpload={(urls) => setImages(urls)}
                   maxImages={10}
                 />
               </div>
-
-              <div className="pt-3 border-t border-slate-100 flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-slate-500 hover:bg-slate-50 rounded-xl text-xs font-bold cursor-pointer transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-primary hover:bg-primary-container text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
-                >
-                  Submit Property
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Delete Confirmation Modal */}
