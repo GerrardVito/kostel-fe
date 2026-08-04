@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bill,
@@ -69,6 +69,7 @@ export default function TenantApp() {
   const [onboardingProratedAmount, setOnboardingProratedAmount] = useState<number | null>(null);
   const [onboardingTermsAgreed, setOnboardingTermsAgreed] = useState(false);
   const [justCheckedOut, setJustCheckedOut] = useState(false);
+  const hasDeterminedStep = useRef(false);
 
   // Modal state
   const [showMaintModal, setShowMaintModal] = useState(false);
@@ -363,38 +364,89 @@ export default function TenantApp() {
       }
     }
     setOnboardingStep(null);
+    setCurrentUser((prev) => prev ? { ...prev, hasProperty: true } : prev);
     triggerNotification("Welcome! Your contract is now active.");
     fetchAllData();
   };
 
   const handleChecklistComplete = () => {
     setOnboardingStep(null);
+    setCurrentUser((prev) => prev ? { ...prev, hasProperty: true } : prev);
     triggerNotification("Check-in complete! Welcome to your new room.");
     fetchAllData();
   };
 
-  // Show onboarding if tenant has no property and not already in onboarding
+  // Determine onboarding step on mount based on server state
   useEffect(() => {
-    if (!onboardingStep && token && currentUser?.role === "tenant" && currentUser?.hasProperty === false && !currentUser?.hasPendingApplication && !currentUser?.hasApprovedApplication) {
-      setOnboardingStep("nohome");
-    }
-  }, [token, currentUser, onboardingStep]);
+    if (token && currentUser && currentUser.role === "tenant" && !hasDeterminedStep.current) {
+      hasDeterminedStep.current = true;
 
-  // Show onboarding if tenant has pending application
-  useEffect(() => {
-    if (!onboardingStep && token && currentUser?.role === "tenant" && currentUser?.hasPendingApplication && currentUser.applicationId && !currentUser.hasProperty) {
-      setOnboardingApplicationId(currentUser.applicationId);
-      setOnboardingStep("application-status");
-    }
-  }, [token, currentUser, onboardingStep]);
+      if (justCheckedOut) {
+        setOnboardingStep("nohome");
+        return;
+      }
 
-  // Show onboarding if tenant has approved application
-  useEffect(() => {
-    if (!onboardingStep && token && currentUser?.role === "tenant" && currentUser?.hasApprovedApplication && currentUser.applicationId && !currentUser.hasProperty) {
-      setOnboardingApplicationId(currentUser.applicationId);
-      setOnboardingStep("application-status");
+      const determineStep = async () => {
+        try {
+          const userRes = await getMe(token);
+          const serverHasProperty = userRes.hasProperty || false;
+
+          if (currentUser.hasProperty !== serverHasProperty) {
+            setCurrentUser((prev) => prev ? { ...prev, hasProperty: serverHasProperty } : prev);
+          }
+
+          if (!serverHasProperty) {
+            const tenantRes = await fetch("/api/tenants/me", { headers: { Authorization: `Bearer ${token}` } });
+            const tenantData = tenantRes.ok ? await tenantRes.json() : null;
+
+            if (tenantData && tenantData.assignment_id) {
+              setOnboardingAssignmentId(tenantData.assignment_id);
+              setOnboardingRoomId(tenantData.room_id || 0);
+              setOnboardingRoomNumber(tenantData.roomNumber || "");
+              setOnboardingPropertyId(tenantData.propertyId || "");
+              setOnboardingPropertyName(tenantData.propertyName || "");
+              setOnboardingMonthlyPrice(tenantData.monthlyPrice || 0);
+              setOnboardingDepositPrice(tenantData.depositPrice || 0);
+
+              const contractRes = await fetch(`/api/contracts/by-assignment/${tenantData.assignment_id}`, { headers: { Authorization: `Bearer ${token}` } });
+              const contractData = contractRes.ok ? await contractRes.json() : null;
+
+              if (contractData && contractData.status === "signed") {
+                const checklistRes = await fetch(`/api/checklist-sessions/assignment/${tenantData.assignment_id}/checkin/status`, { headers: { Authorization: `Bearer ${token}` } });
+                const checklistData = checklistRes.ok ? await checklistRes.json() : null;
+
+                if (checklistData && checklistData.completed) {
+                  setOnboardingStep(null);
+                  setCurrentUser((prev) => prev ? { ...prev, hasProperty: true } : prev);
+                } else {
+                  setOnboardingStep("checklist");
+                }
+              } else {
+                setOnboardingStep("terms");
+              }
+            } else if (currentUser.hasApprovedApplication) {
+              setOnboardingApplicationId(currentUser.applicationId || null);
+              setOnboardingStep("application-status");
+            } else if (currentUser.hasPendingApplication) {
+              setOnboardingApplicationId(currentUser.applicationId || null);
+              setOnboardingStep("application-status");
+            } else {
+              setOnboardingStep("nohome");
+            }
+          } else {
+            setOnboardingStep(null);
+          }
+        } catch (e) {
+          console.error("Failed to determine onboarding step:", e);
+          setOnboardingStep(null);
+        }
+      };
+
+      determineStep();
+    } else if (!currentUser) {
+      setOnboardingStep(null);
     }
-  }, [token, currentUser, onboardingStep]);
+  }, [token, currentUser?.hasProperty, currentUser?.role, currentUser?.hasApprovedApplication, currentUser?.hasPendingApplication]);
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
