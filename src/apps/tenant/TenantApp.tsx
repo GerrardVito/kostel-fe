@@ -25,6 +25,7 @@ import TenantApplicationForm from "../../components/TenantApplicationForm";
 import TenantApplicationStatus from "../../components/TenantApplicationStatus";
 import ChecklistSessionView from "../../components/ChecklistSessionView";
 import PaymentView from "../../components/PaymentView";
+import PaymentConfirmationWaitingView from "../../components/PaymentConfirmationWaitingView";
 import MaintenanceFormModal from "../../components/MaintenanceFormModal";
 
 // Icons
@@ -335,9 +336,8 @@ export default function TenantApp() {
     setOnboardingStep("application-status");
   };
 
-  const handlePaymentComplete = (assignmentId: number) => {
-    setOnboardingAssignmentId(assignmentId);
-    setOnboardingStep("terms");
+  const handlePaymentSubmitted = () => {
+    setOnboardingStep("payment-confirmation");
   };
 
   const handleOnboardingComplete = async () => {
@@ -568,11 +568,19 @@ export default function TenantApp() {
             depositPrice={onboardingDepositPrice}
             proratedAmount={onboardingProratedAmount || onboardingMonthlyPrice}
             token={token}
-            onPaymentComplete={(assignmentId) => {
-              setOnboardingAssignmentId(assignmentId);
-              setOnboardingStep("terms");
-            }}
+            onPaymentSubmitted={handlePaymentSubmitted}
             onBack={() => setOnboardingStep("application-status")}
+          />
+        )}
+
+        {onboardingStep === "payment-confirmation" && onboardingAssignmentId && (
+          <PaymentConfirmationWaitingView
+            assignmentId={onboardingAssignmentId}
+            propertyName={onboardingPropertyName}
+            roomNumber={onboardingRoomNumber}
+            token={token}
+            onConfirmed={() => setOnboardingStep("terms")}
+            onRejected={() => setOnboardingStep("payment")}
           />
         )}
 

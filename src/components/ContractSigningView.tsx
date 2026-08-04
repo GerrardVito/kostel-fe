@@ -41,7 +41,7 @@ export default function ContractSigningView({ propertyId, propertyName, roomId, 
   const fetchTemplate = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/properties/${propertyId}/contract-template`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`/api/properties/${propertyId}/contract-template${roomId ? `?roomId=${roomId}` : ''}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         setTemplate(await res.json());
       }

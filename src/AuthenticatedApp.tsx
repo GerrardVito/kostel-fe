@@ -437,7 +437,7 @@ export default function AuthenticatedApp() {
 
   // Onboarding state for new tenants
   const hasDeterminedStep = useRef(false);
-  const [onboardingStep, setOnboardingStep] = useState<"nohome" | "room-type-selection" | "application" | "application-status" | "room" | "payment" | "terms" | "contract" | "checklist" | null>(() => {
+  const [onboardingStep, setOnboardingStep] = useState<"nohome" | "room-type-selection" | "application" | "application-status" | "room" | "payment" | "payment-confirmation" | "terms" | "contract" | "checklist" | null>(() => {
     const saved = localStorage.getItem("kostel_onboarding_step");
     return saved ? (saved as any) : null;
   });
@@ -909,9 +909,8 @@ export default function AuthenticatedApp() {
             depositPrice={onboardingDepositPrice}
             proratedAmount={onboardingProratedAmount || onboardingMonthlyPrice}
             token={token}
-            onPaymentComplete={(assignmentId) => {
-              setOnboardingAssignmentId(assignmentId);
-              setOnboardingStep("terms");
+            onPaymentSubmitted={() => {
+              setOnboardingStep("payment-confirmation");
             }}
             onBack={() => setOnboardingStep("application-status")}
           />
@@ -1140,11 +1139,14 @@ export default function AuthenticatedApp() {
                 maintenanceRequests={maintenanceRequests}
                 activityLogs={activityLogs}
                 applications={applications}
+                paymentConfirmations={[]}
                 token={token}
                 financeSummary={financeSummary}
                 onResolveMaintenance={handleResolveMaintenance}
                 onSendReminders={handleSendReminders}
                 onRefreshData={fetchAllData}
+                onConfirmPayment={() => {}}
+                onRejectPayment={() => {}}
               />
             )}
 

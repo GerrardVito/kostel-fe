@@ -11,7 +11,7 @@ interface Props {
   depositPrice: number;
   proratedAmount: number;
   token: string;
-  onPaymentComplete: (assignmentId: number) => void;
+  onPaymentSubmitted: () => void;
   onBack: () => void;
 }
 
@@ -24,7 +24,7 @@ export default function PaymentView({
   depositPrice,
   proratedAmount,
   token,
-  onPaymentComplete,
+  onPaymentSubmitted,
   onBack,
 }: Props) {
   const [processing, setProcessing] = useState(false);
@@ -40,7 +40,7 @@ export default function PaymentView({
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        onPaymentComplete(assignmentId);
+        onPaymentSubmitted();
       } else {
         const err = await res.json();
         setError(err.error || "Payment failed");

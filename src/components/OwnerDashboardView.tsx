@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { Property, Bill, MaintenanceRequest, ActivityLog, TenantApplication } from "../types";
-import { Search, Building, Users, Home, TrendingUp, AlertTriangle, ArrowUpRight, DollarSign, Clock, CheckCircle, ChevronRight, Send, AlertCircle, RefreshCw, LogOut, ClipboardCheck, Calendar } from "lucide-react";
+import { Property, Bill, MaintenanceRequest, ActivityLog, TenantApplication, PaymentConfirmation } from "../types";
+import { Search, Building, Users, Home, TrendingUp, AlertTriangle, ArrowUpRight, DollarSign, Clock, CheckCircle, ChevronRight, Send, AlertCircle, RefreshCw, LogOut, ClipboardCheck, Calendar, XCircle } from "lucide-react";
 import OwnerApplicationsSection from "./OwnerApplicationsSection";
 import ChecklistSessionView from "./ChecklistSessionView";
 import InspectionsListView from "./InspectionsListView";
@@ -16,6 +16,7 @@ interface OwnerDashboardViewProps {
   maintenanceRequests: MaintenanceRequest[];
   activityLogs: ActivityLog[];
   applications: TenantApplication[];
+  paymentConfirmations: PaymentConfirmation[];
   token: string;
   financeSummary?: {
     total_income: number;
@@ -25,6 +26,8 @@ interface OwnerDashboardViewProps {
   onResolveMaintenance: (id: string, status: "PENDING" | "PROCESSING" | "COMPLETED") => void;
   onSendReminders: () => void;
   onRefreshData: () => void;
+  onConfirmPayment: (confirmationId: number, amount: number) => void;
+  onRejectPayment: (confirmationId: number, reason: string) => void;
 }
 
 export default function OwnerDashboardView({
@@ -33,11 +36,14 @@ export default function OwnerDashboardView({
   maintenanceRequests,
   activityLogs,
   applications,
+  paymentConfirmations,
   token,
   financeSummary,
   onResolveMaintenance,
   onSendReminders,
   onRefreshData,
+  onConfirmPayment,
+  onRejectPayment,
 }: OwnerDashboardViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | null>(null);
@@ -53,6 +59,9 @@ export default function OwnerDashboardView({
   const [roomChangeRequests, setRoomChangeRequests] = useState<any[]>([]);
   const [approvingRequest, setApprovingRequest] = useState<any | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedConfirmation, setSelectedConfirmation] = useState<PaymentConfirmation | null>(null);
+  const [confirmAmount, setConfirmAmount] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     if (token && properties.length > 0) {
@@ -178,6 +187,139 @@ export default function OwnerDashboardView({
         token={token}
         onRefresh={onRefreshData}
       />
+
+      {/* Pending Payment Confirmations Section */}
+      {paymentConfirmations.filter(c => c.status === "pending").length > 0 && (
+        <section className="bg-white rounded-2xl border border-emerald-200 overflow-hidden shadow-2xs">
+          <div className="px-6 py-4.5 border-b border-emerald-150 flex justify-between items-center bg-emerald-50">
+            <h4 className="font-display font-bold text-emerald-900 text-base flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-emerald-600" />
+              Payment Confirmations
+              <span className="ml-2 px-2 py-0.5 bg-emerald-200 text-emerald-700 text-[10px] font-bold rounded-full">
+                {paymentConfirmations.filter(c => c.status === "pending").length} pending
+              </span>
+            </h4>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {paymentConfirmations.filter(c => c.status === "pending").map((conf) => (
+                <div
+                  key={conf.confirmation_id}
+                  className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 rounded-xl"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {conf.tenant?.user?.full_name || "Unknown Tenant"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {conf.bill?.type || "Bill"} — Rp{" "}
+                      {Number(conf.amount_claimed).toLocaleString()}
+                    </p>
+                    {conf.notes && (
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        &quot;{conf.notes}&quot;
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedConfirmation(conf);
+                        setConfirmAmount(String(conf.amount_claimed));
+                        setRejectReason("");
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg cursor-pointer transition-colors"
+                    >
+                      Review
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Payment Confirmation Review Modal */}
+      {selectedConfirmation && (
+        <Modal
+          onClose={() => { setSelectedConfirmation(null); setConfirmAmount(""); setRejectReason(""); }}
+          title="Review Payment Confirmation"
+          footer={
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  onConfirmPayment(selectedConfirmation.confirmation_id, Number(confirmAmount));
+                  setSelectedConfirmation(null);
+                  setConfirmAmount("");
+                  setRejectReason("");
+                }}
+                className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-xl flex-1 cursor-pointer transition-colors"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => {
+                  onRejectPayment(selectedConfirmation.confirmation_id, rejectReason);
+                  setSelectedConfirmation(null);
+                  setConfirmAmount("");
+                  setRejectReason("");
+                }}
+                className="px-4 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold rounded-xl flex-1 cursor-pointer transition-colors"
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => { setSelectedConfirmation(null); setConfirmAmount(""); setRejectReason(""); }}
+                className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-bold rounded-xl cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-3 mb-4">
+            <p className="text-sm text-slate-600">
+              <strong>Tenant:</strong>{" "}
+              {selectedConfirmation.tenant?.user?.full_name || "Unknown"}
+            </p>
+            <p className="text-sm text-slate-600">
+              <strong>Bill:</strong>{" "}
+              {selectedConfirmation.bill?.type || "N/A"}
+            </p>
+            <p className="text-sm text-slate-600">
+              <strong>Amount Claimed:</strong> Rp{" "}
+              {Number(selectedConfirmation.amount_claimed).toLocaleString()}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-slate-600">
+                Confirmed Amount
+              </label>
+              <input
+                type="number"
+                value={confirmAmount}
+                onChange={(e) => setConfirmAmount(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                placeholder="Enter amount"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600">
+                Rejection Reason (if rejecting)
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-xl text-sm"
+                placeholder="Enter reason"
+                rows={2}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Search & Welcome Row */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">

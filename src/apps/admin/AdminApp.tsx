@@ -460,11 +460,14 @@ export default function AdminApp() {
             maintenanceRequests={maintenanceRequests}
             activityLogs={activityLogs}
             applications={applications}
+            paymentConfirmations={paymentConfirmations}
             token={token}
             financeSummary={financeSummary}
             onResolveMaintenance={handleResolveMaintenance}
             onSendReminders={handleSendReminders}
             onRefreshData={fetchAllData}
+            onConfirmPayment={handleConfirmPayment}
+            onRejectPayment={handleRejectPayment}
           />
         )}
 
